@@ -1,0 +1,50 @@
+{% extends "tracking/base.html" %}
+{% load tz %}
+{% block title %}I/O inspector · {{ FLEET.SITE_NAME }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <h5 class="mb-0">I/O inspector — {{ rec.device.name }}</h5>
+  <div class="d-flex gap-2">
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'records' %}?device={{ rec.device_id }}">All records</a>
+    {% if can_view_raw %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'raw_detail' rec.packet_id %}">Raw packet #{{ rec.packet_id }}</a>{% endif %}
+  </div>
+</div>
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header">GPS element</div>
+      <table class="table table-sm mb-0">
+        <tr><th>Device time (UAE)</th><td>{{ rec.timestamp_utc|date:"Y-m-d H:i:s" }}</td></tr>
+        <tr><th>Device time (UTC)</th><td>{{ rec.timestamp_utc|utc|date:"Y-m-d H:i:s" }} UTC</td></tr>
+        <tr><th>Server received</th><td>{{ rec.received_utc|date:"Y-m-d H:i:s" }}{% if rec.late %} <span class="badge bg-danger">late</span>{% endif %}</td></tr>
+        <tr><th>Latitude / Longitude</th><td>{{ rec.latitude|floatformat:7 }}, {{ rec.longitude|floatformat:7 }}</td></tr>
+        <tr><th>Valid fix</th><td>{% if rec.valid_fix %}<span class="text-success">yes</span>{% else %}<span class="text-danger">no — not shown on map</span>{% endif %}</td></tr>
+        <tr><th>GNSS speed</th><td>{{ rec.speed }} km/h</td></tr>
+        <tr><th>Altitude</th><td>{{ rec.altitude }} m</td></tr>
+        <tr><th>Heading</th><td>{{ rec.angle }}°</td></tr>
+        <tr><th>Satellites</th><td>{{ rec.satellites }}</td></tr>
+        <tr><th>Priority</th><td>{{ rec.priority }} {% if rec.priority == 0 %}(low){% elif rec.priority == 1 %}(high){% elif rec.priority == 2 %}(panic){% endif %}</td></tr>
+        <tr><th>Event I/O ID</th><td>{{ rec.event_io_id }}{% if rec.event_io_id == 0 %} (periodic){% endif %}</td></tr>
+        <tr><th>Record index in packet</th><td>{{ rec.index }}</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between"><span>I/O elements ({{ io|length }})</span><span class="small text-muted">Mapping {{ mapping_version }}</span></div>
+      <div class="table-responsive"><table class="table table-sm table-hover mb-0">
+        <thead class="table-light"><tr><th>AVL ID</th><th>Name</th><th>Bytes</th><th>Raw HEX</th><th>Value</th><th>Unit</th><th>Mapping</th></tr></thead>
+        <tbody>
+        {% for v in io %}
+          <tr class="{% if not v.known %}table-warning{% endif %}">
+            <td><b>{{ v.avl_id }}</b></td><td>{{ v.name }}{% if not v.known %} <span class="badge bg-warning text-dark">unknown</span>{% endif %}</td>
+            <td>{{ v.byte_length }}</td><td class="hex">{{ v.raw_hex }}</td><td>{{ v.text }}</td><td>{{ v.unit }}</td><td class="small text-muted">{{ v.mapping_version }}</td>
+          </tr>
+        {% empty %}<tr><td colspan="7" class="text-muted text-center">No I/O elements in this record.</td></tr>{% endfor %}
+        </tbody>
+      </table></div>
+    </div>
+    <div class="small text-muted mt-2">Unknown AVL IDs are stored with raw bytes and never discarded. Signedness and scaling come from the FMC130 dictionary in <code>tracking/io_dictionary.py</code>; verify against the firmware on the device.</div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,75 @@
+{% extends "tracking/base.html" %}
+{% block title %}History · {{ FLEET.SITE_NAME }}{% endblock %}
+{% block content %}
+<div class="card mb-3">
+  <div class="card-body py-2">
+    <form id="hform" class="row g-2 align-items-end">
+      <div class="col-md-3"><label class="form-label small mb-0">Vehicle</label>
+        <select class="form-select form-select-sm" name="device" id="hdev">{% for d in devices %}<option value="{{ d.id }}">{{ d.name }}</option>{% endfor %}</select></div>
+      <div class="col-md-3"><label class="form-label small mb-0">From (UAE time)</label><input type="datetime-local" class="form-control form-control-sm" id="hfrom"></div>
+      <div class="col-md-3"><label class="form-label small mb-0">To (UAE time)</label><input type="datetime-local" class="form-control form-control-sm" id="hto"></div>
+      <div class="col-md-3 d-flex gap-2">
+        <button class="btn btn-sm btn-primary">Show route</button>
+        <div class="btn-group btn-group-sm">
+          <button type="button" class="btn btn-outline-secondary" data-h="1">1 h</button>
+          <button type="button" class="btn btn-outline-secondary" data-h="24">24 h</button>
+          <button type="button" class="btn btn-outline-secondary" data-h="168">7 d</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="row g-3">
+  <div class="col-lg-7"><div class="card"><div id="map" style="height: 560px"></div></div>
+    <div class="small text-muted mt-1">Route draws valid fixes only, in device-time order. Red circles = late arrivals, grey = invalid fix (not plotted).</div></div>
+  <div class="col-lg-5">
+    <div class="card mb-2"><div class="card-body py-2 small" id="hsum">Choose a vehicle and time range.</div></div>
+    <div class="card"><div class="table-responsive" style="max-height: 500px">
+      <table class="table table-sm table-hover mb-0"><thead class="table-light sticky-top"><tr><th>Device time</th><th>Speed</th><th>Sats</th><th>Fix</th><th>Arrival</th></tr></thead>
+      <tbody id="hrows"></tbody></table></div></div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const map = L.map("map").setView([24.45, 54.6], 10);
+  Fleet.baseLayers(map);
+  const layer = L.layerGroup().addTo(map);
+  const params = new URLSearchParams(location.search);
+  if (params.get("device")) document.getElementById("hdev").value = params.get("device");
+  // datetime-local values are interpreted as UAE time (+04:00)
+  const toLocal = d => new Date(d.getTime() + 4 * 3600e3).toISOString().slice(0, 16);
+  const setRange = h => { const now = new Date(); document.getElementById("hto").value = toLocal(now);
+    document.getElementById("hfrom").value = toLocal(new Date(now - h * 3600e3)); };
+  setRange(24);
+  document.querySelectorAll("[data-h]").forEach(b => b.onclick = () => { setRange(+b.dataset.h); load(); });
+  document.getElementById("hform").onsubmit = e => { e.preventDefault(); load(); };
+
+  async function load() {
+    const dev = document.getElementById("hdev").value;
+    if (!dev) return;
+    const f = document.getElementById("hfrom").value + ":00+04:00", t = document.getElementById("hto").value + ":59+04:00";
+    const data = await Fleet.json(`/api/history/?device=${dev}&from=${encodeURIComponent(f)}&to=${encodeURIComponent(t)}`);
+    layer.clearLayers();
+    const valid = data.points.filter(p => p.valid);
+    const line = valid.map(p => [p.lat, p.lon]);
+    if (line.length) {
+      L.polyline(line, {color: "#0ea5e9", weight: 4, opacity: .85}).addTo(layer);
+      L.circleMarker(line[0], {radius: 7, color: "#16a34a", fillOpacity: 1}).bindTooltip("Start " + Fleet.fmt(valid[0].ts)).addTo(layer);
+      L.circleMarker(line[line.length - 1], {radius: 7, color: "#dc2626", fillOpacity: 1}).bindTooltip("End " + Fleet.fmt(valid[valid.length - 1].ts)).addTo(layer);
+      valid.filter(p => p.late).forEach(p => L.circleMarker([p.lat, p.lon], {radius: 5, color: "#dc2626"}).bindTooltip("Late arrival " + Fleet.fmt(p.ts)).addTo(layer));
+      map.fitBounds(line, {padding: [30, 30]});
+    }
+    document.getElementById("hsum").innerHTML = `<b>${Fleet.esc(data.device)}</b> · ${data.count} records, ${data.valid} with valid fix,
+      ${data.late} late arrivals · max speed ${data.max_speed} km/h`;
+    document.getElementById("hrows").innerHTML = data.points.slice().reverse().slice(0, 1000).map(p => `<tr class="${p.valid ? "" : "text-muted"}">
+      <td><a href="/records/${p.id}/">${Fleet.fmt(p.ts)}</a></td><td>${p.speed}</td><td>${p.sats}</td>
+      <td>${p.valid ? '<i class="bi bi-check-circle text-success"></i>' : '<i class="bi bi-x-circle"></i> none'}</td>
+      <td>${p.late ? '<span class="badge bg-danger">late</span> ' : ""}${Fleet.fmt(p.rx).slice(11)}</td></tr>`).join("")
+      || '<tr><td colspan="5" class="text-center text-muted">No records in range.</td></tr>';
+  }
+  load();
+})();
+</script>
+{% endblock %}

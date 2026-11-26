@@ -1,0 +1,129 @@
+{% extends "tracking/base.html" %}
+{% block title %}Live map · {{ FLEET.SITE_NAME }}{% endblock %}
+{% block mainclass %}content-flush{% endblock %}
+{% block content %}
+<div class="live-wrap">
+  <section class="vpanel">
+    <div class="vtabs" id="vtabs">
+      <button data-f="all" class="active"><b id="c-all">0</b>All</button>
+      <button data-f="moving"><b id="c-moving">0</b>Moving</button>
+      <button data-f="idling"><b id="c-idling">0</b>Idling</button>
+      <button data-f="parked"><b id="c-parked">0</b>Parked</button>
+      <button data-f="nosignal"><b id="c-nosignal">0</b>No signal</button>
+    </div>
+    <div class="vsearch"><input id="vq" class="form-control form-control-sm" placeholder="Search vehicle, plate, group…"></div>
+    <div class="vlist" id="vlist"><div class="p-3 text-muted small">Loading…</div></div>
+    <div class="small text-muted px-2 py-1 border-top">Updated <span id="upd">—</span> · polling every {{ FLEET.POLL_SECONDS }} s</div>
+  </section>
+  <div class="position-relative flex-grow-1 d-flex">
+    <div id="map"></div>
+    <div class="map-tools btn-group-vertical shadow-sm" style="top: 100px">
+      <button class="btn btn-light btn-sm" id="fitAll" title="Fit all vehicles"><i class="bi bi-arrows-fullscreen"></i></button>
+      <button class="btn btn-light btn-sm" id="follow" title="Follow selected vehicle"><i class="bi bi-crosshair"></i></button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const map = L.map("map").setView([24.45, 54.6], 10);
+  Fleet.baseLayers(map);
+  const markers = {};
+  let devices = [], filter = "all", selected = null, follow = false, fitted = false;
+
+  function popup(d) {
+    const f = d.fix;
+    const yn = v => v == null ? "—" : (v ? "On" : "Off");
+    return `<div class="pop-title">${Fleet.esc(d.name)} <span class="badge badge-state bg-${d.state}">${Fleet.stateLabel[d.state]}</span></div>
+      <div class="pop-grid">
+        <span>Plate</span><span>${Fleet.esc(d.plate || "—")}</span>
+        <span>Fix time</span><span>${Fleet.fmt(f.ts)}</span>
+        <span>Fix age</span><span>${Fleet.ago(f.ts)}${f.age_s > 900 ? ' <b class="text-danger">(old)</b>' : ""}</span>
+        <span>Position</span><span>${f.lat.toFixed(6)}, ${f.lon.toFixed(6)}</span>
+        <span>Speed</span><span>${f.speed} km/h · ${f.angle}°</span>
+        <span>Satellites</span><span>${f.sats}</span>
+        <span>Ignition</span><span>${yn(d.ignition)}</span>
+        <span>GSM / Ext V</span><span>${d.gsm ?? "—"}/5 · ${d.ext_v != null ? d.ext_v.toFixed(2) + " V" : "—"}</span>
+        <span>Last packet</span><span>${Fleet.ago(d.last_packet)}</span>
+      </div>
+      <div class="mt-2 d-flex gap-2"><a class="btn btn-sm btn-outline-primary" href="/history/?device=${d.id}">History</a>
+      <a class="btn btn-sm btn-outline-secondary" href="/io/?device=${d.id}">I/O</a>
+      <a class="btn btn-sm btn-outline-secondary" href="/devices/${d.id}/">Device</a></div>`;
+  }
+
+  function render() {
+    const q = document.getElementById("vq").value.toLowerCase();
+    const counts = {all: devices.length, moving: 0, idling: 0, parked: 0, nosignal: 0};
+    devices.forEach(d => counts[d.state]++);
+    for (const k in counts) document.getElementById("c-" + k).textContent = counts[k];
+    const groups = {};
+    devices.filter(d => (filter === "all" || d.state === filter) &&
+      (!q || (d.name + " " + d.plate + " " + d.group).toLowerCase().includes(q)))
+      .forEach(d => (groups[d.group] = groups[d.group] || []).push(d));
+    const html = [];
+    for (const g of Object.keys(groups).sort()) {
+      html.push(`<div class="vgroup">${Fleet.esc(g)} [${groups[g].length}]</div>`);
+      for (const d of groups[g]) {
+        let line;
+        if (d.state === "moving") line = `Moving · ${d.fix.speed} km/h`;
+        else if (d.state === "nosignal") line = d.last_packet ? `No connection · last ${Fleet.ago(d.last_packet)}` : "Never connected";
+        else line = `${Fleet.stateLabel[d.state]} · fix ${Fleet.ago(d.fix && d.fix.ts)}`;
+        html.push(`<div class="vitem ${selected === d.id ? "sel" : ""}" data-id="${d.id}">
+          <div class="d-flex justify-content-between"><span class="nm"><span class="dot ${d.state}"></span> ${Fleet.esc(d.name)}</span>
+          <span class="small text-muted">${Fleet.fmt(d.last_packet).slice(0, 16)}</span></div>
+          <div class="meta">${line}${d.fix ? "" : ' · <span class="text-danger">no valid fix</span>'}</div>
+          <div class="meta">${d.fix ? d.fix.lat.toFixed(5) + ", " + d.fix.lon.toFixed(5) + " · " + d.fix.sats + " sats" : Fleet.esc(d.imei)}</div></div>`);
+      }
+    }
+    document.getElementById("vlist").innerHTML = html.join("") || '<div class="p-3 text-muted small">No vehicles match.</div>';
+  }
+
+  async function load() {
+    const data = await Fleet.json(Fleet.cfg.api);
+    devices = data.devices;
+    const seen = new Set();
+    for (const d of devices) {
+      if (!d.fix) continue;   // never draw a position for a device without a valid fix
+      seen.add(d.id);
+      const ll = [d.fix.lat, d.fix.lon];
+      if (!markers[d.id]) {
+        markers[d.id] = L.marker(ll, {icon: Fleet.vehicleIcon(d.state, d.fix.angle)}).addTo(map)
+          .bindTooltip(d.name, {permanent: true, direction: "right", offset: [14, 0], className: "small"});
+        markers[d.id].on("click", () => select(d.id));
+      } else {
+        markers[d.id].setLatLng(ll).setIcon(Fleet.vehicleIcon(d.state, d.fix.angle));
+      }
+      markers[d.id].bindPopup(popup(d));
+    }
+    for (const id in markers) if (!seen.has(+id)) { map.removeLayer(markers[id]); delete markers[id]; }
+    if (!fitted && seen.size) { fitAll(); fitted = true; }
+    if (follow && selected && markers[selected]) map.panTo(markers[selected].getLatLng());
+    document.getElementById("upd").textContent = Fleet.fmt(data.server_time).slice(11);
+    render();
+  }
+  function fitAll() {
+    const pts = Object.values(markers).map(m => m.getLatLng());
+    if (pts.length) map.fitBounds(L.latLngBounds(pts), {padding: [40, 40], maxZoom: 15});
+  }
+  function select(id) {
+    selected = id;
+    const m = markers[id];
+    if (m) { map.setView(m.getLatLng(), Math.max(map.getZoom(), 15)); m.openPopup(); }
+    render();
+  }
+  document.getElementById("vtabs").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    document.querySelectorAll("#vtabs button").forEach(x => x.classList.toggle("active", x === b));
+    filter = b.dataset.f; render();
+  });
+  document.getElementById("vlist").addEventListener("click", e => {
+    const it = e.target.closest(".vitem"); if (it) select(+it.dataset.id);
+  });
+  document.getElementById("vq").addEventListener("input", render);
+  document.getElementById("fitAll").onclick = fitAll;
+  document.getElementById("follow").onclick = e => { follow = !follow; e.currentTarget.classList.toggle("btn-primary", follow); };
+  load(); setInterval(load, Fleet.cfg.poll * 1000);
+})();
+</script>
+{% endblock %}

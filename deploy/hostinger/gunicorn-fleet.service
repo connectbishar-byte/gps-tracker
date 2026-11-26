@@ -1,0 +1,23 @@
+[Unit]
+Description=Meltice GPS Tracker - Django web (gunicorn on 127.0.0.1:9040)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=fleet
+Group=fleet
+WorkingDirectory=/srv/meltice-gps-tracker/app
+EnvironmentFile=/etc/meltice-gps-tracker/fleet.env
+Environment=FLEET_PROCESS=web
+ExecStart=/srv/meltice-gps-tracker/venv/bin/gunicorn fleet_project.wsgi:application --bind 127.0.0.1:9040 --workers 2 --timeout 60 --access-logfile -
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/srv/meltice-gps-tracker /var/lib/meltice-gps-tracker /var/log/meltice-gps-tracker
+
+[Install]
+WantedBy=multi-user.target

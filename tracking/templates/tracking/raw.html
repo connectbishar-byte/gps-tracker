@@ -1,0 +1,34 @@
+{% extends "tracking/base.html" %}
+{% block title %}Raw data · {{ FLEET.SITE_NAME }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+  <h5 class="mb-0">Raw packets <span class="small text-muted">(restricted)</span></h5>
+  <form class="d-flex gap-2 flex-wrap" method="get">
+    <select class="form-select form-select-sm" style="width:auto" name="device"><option value="">All devices</option>{% for d in devices %}<option value="{{ d.id }}" {% if q.device == d.id|stringformat:"s" %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select>
+    <select class="form-select form-select-sm" style="width:auto" name="status"><option value="">Any status</option><option value="ok" {% if q.status == 'ok' %}selected{% endif %}>Parsed OK</option><option value="error" {% if q.status == 'error' %}selected{% endif %}>Errors</option></select>
+    <select class="form-select form-select-sm" style="width:auto" name="codec"><option value="">Any codec</option><option value="8" {% if q.codec == '8' %}selected{% endif %}>Codec 8</option><option value="8E" {% if q.codec == '8E' %}selected{% endif %}>Codec 8E</option></select>
+    <input class="form-control form-control-sm" style="width:180px" name="search" placeholder="HEX or error text" value="{{ q.search|default:'' }}">
+    <button class="btn btn-sm btn-primary">Filter</button>
+    <button class="btn btn-sm btn-outline-secondary" name="export" value="csv">Export CSV (masked IMEI)</button>
+  </form>
+</div>
+<div class="card"><div class="table-responsive">
+<table class="table table-sm table-hover mb-0">
+  <thead class="table-light"><tr><th>Received (UAE)</th><th>Device</th><th>Source</th><th>Codec</th><th>Size</th><th>CRC</th><th>Records</th><th>New / dup</th><th>Parse</th><th>ACK</th><th>HEX</th></tr></thead>
+  <tbody>
+  {% for p in page %}
+    <tr class="{% if p.parse_status == 'error' %}table-danger{% endif %}">
+      <td><a href="{% url 'raw_detail' p.id %}">{{ p.received_utc|date:"Y-m-d H:i:s" }}</a></td>
+      <td>{% if p.device %}{{ p.device.name }}<div class="small text-muted">{{ p.device.masked_imei }}</div>{% else %}—{% endif %}</td>
+      <td>{{ p.connection.source|default:"—" }}</td><td>{{ p.codec|default:"—" }}</td><td>{{ p.size }} B</td>
+      <td>{% if p.crc_ok %}<span class="text-success">OK {{ p.crc_value }}</span>{% elif p.crc_ok == False %}<span class="text-danger">FAIL</span>{% else %}—{% endif %}</td>
+      <td>{{ p.record_count }}</td><td>{{ p.new_records }} / {{ p.duplicate_records }}</td>
+      <td>{% if p.parse_status == 'ok' %}ok{% else %}<span class="text-danger" title="{{ p.error }}">{{ p.error|truncatechars:40 }}</span>{% endif %}</td>
+      <td>{{ p.ack_status }}{% if p.ack_value is not None %} ({{ p.ack_value }}){% endif %}</td>
+      <td class="hex" style="max-width: 260px">{{ p.hex|truncatechars:60 }}</td>
+    </tr>
+  {% empty %}<tr><td colspan="11" class="text-center text-muted py-4">No packets.</td></tr>{% endfor %}
+  </tbody>
+</table></div></div>
+{% include "tracking/_pager.html" %}
+{% endblock %}

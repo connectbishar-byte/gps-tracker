@@ -1,0 +1,51 @@
+{% extends "tracking/base.html" %}
+{% block title %}Devices · {{ FLEET.SITE_NAME }}{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-xl-8">
+    <div class="card">
+      <div class="card-header">Device registry (IMEI allow-list)</div>
+      <div class="table-responsive"><table class="table table-sm table-hover mb-0">
+        <thead class="table-light"><tr><th>Name</th><th>IMEI</th><th>Model</th><th>Firmware</th><th>Enabled</th><th>Link</th><th>Last connection</th><th>Packets</th><th>Records</th><th>Errors</th><th>Config rev.</th></tr></thead>
+        <tbody>
+        {% for r in rows %}
+          <tr>
+            <td><a href="{% url 'device_detail' r.id %}">{{ r.name }}</a><div class="small text-muted">{{ r.group }}</div></td>
+            <td>{{ r.imei }}</td><td>{{ r.model }}</td><td>{{ r.obj.firmware|default:"—" }}</td>
+            <td>{% if r.enabled %}<i class="bi bi-check-circle text-success"></i>{% else %}<i class="bi bi-slash-circle text-danger"></i>{% endif %}</td>
+            <td class="link-{{ r.link }}">{{ r.link }}</td>
+            <td>{{ r.obj.last_connection_utc|date:"Y-m-d H:i"|default:"never" }}</td>
+            <td>{{ r.packets }}</td><td>{{ r.records }}</td><td class="{% if r.errors %}text-danger{% endif %}">{{ r.errors }}</td>
+            <td class="small">{{ r.obj.config_revision|default:"—" }}</td>
+          </tr>
+        {% empty %}<tr><td colspan="11" class="text-center text-muted py-4">No devices yet.</td></tr>{% endfor %}
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+  <div class="col-xl-4">
+    <div class="card">
+      <div class="card-header">Register a device</div>
+      <div class="card-body">
+        {% if user.is_staff %}
+        <form method="post">{% csrf_token %}
+          {% for f in form %}
+            <div class="mb-2">
+              {% if f.field.widget.input_type == 'checkbox' %}
+                <div class="form-check">{{ f }} <label class="form-check-label small" for="{{ f.id_for_label }}">{{ f.label }}</label></div>
+              {% else %}
+                <label class="form-label small mb-0" for="{{ f.id_for_label }}">{{ f.label }}</label>
+                <input class="form-control form-control-sm" name="{{ f.html_name }}" id="{{ f.id_for_label }}" value="{{ f.value|default_if_none:'' }}" {% if f.field.required %}required{% endif %}>
+              {% endif %}
+              {% for e in f.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+            </div>
+          {% endfor %}
+          <button class="btn btn-sm btn-primary">Register</button>
+        </form>
+        <div class="small text-muted mt-2">The IMEI allow-list identifies devices; it is not cryptographic authentication. Use a controlled test network or carrier restrictions.</div>
+        {% else %}<div class="text-muted small">Only staff users can register devices.</div>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

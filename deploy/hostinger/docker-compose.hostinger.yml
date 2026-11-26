@@ -1,0 +1,13 @@
+# Alternative Hostinger path: run the same containers on the VPS (Docker installed).
+# Web is published on 127.0.0.1:9040 for the host Nginx; receiver on 0.0.0.0:5027.
+#   docker compose -f docker-compose.yml -f deploy/hostinger/docker-compose.hostinger.yml up -d --build
+services:
+  web:
+    ports: !override ["127.0.0.1:9040:8000"]
+    environment:
+      FLEET_ALLOWED_HOSTS: fleet.melticetech.com,127.0.0.1,localhost
+      FLEET_CSRF_TRUSTED_ORIGINS: https://fleet.melticetech.com
+      FLEET_BEHIND_HTTPS_PROXY: "true"
+      FLEET_ENVIRONMENT_LABEL: Hostinger
+  receiver:
+    ports: !override ["5027:5027"]

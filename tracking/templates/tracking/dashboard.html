@@ -1,0 +1,88 @@
+{% extends "tracking/base.html" %}
+{% block title %}Dashboard · {{ FLEET.SITE_NAME }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h5 class="mb-0">Fleet overview</h5>
+  <span class="small text-muted">Auto-refresh every {{ FLEET.POLL_SECONDS }} s</span>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg"><div class="card kpi all"><div class="label">Registered</div><div class="value" id="k-all">{{ total }}</div><div class="sub"><span id="k-online">{{ links.online }}</span> online · <span id="k-stale">{{ links.stale }}</span> stale</div></div></div>
+  <div class="col-6 col-lg"><div class="card kpi moving"><div class="label">Moving</div><div class="value" id="k-moving">{{ counts.moving }}</div><div class="sub">movement + speed &gt; 3 km/h</div></div></div>
+  <div class="col-6 col-lg"><div class="card kpi idling"><div class="label">Idling</div><div class="value" id="k-idling">{{ counts.idling }}</div><div class="sub">ignition on, stationary</div></div></div>
+  <div class="col-6 col-lg"><div class="card kpi parked"><div class="label">Parked</div><div class="value" id="k-parked">{{ counts.parked }}</div><div class="sub">ignition off</div></div></div>
+  <div class="col-6 col-lg"><div class="card kpi nosignal"><div class="label">No signal</div><div class="value" id="k-nosignal">{{ counts.nosignal }}</div><div class="sub">offline / never connected</div></div></div>
+</div>
+
+<div class="row g-3">
+  <div class="col-xl-8">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between"><span>Device health</span><a class="small" href="{% url 'devices' %}">Manage devices</a></div>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0">
+          <thead class="table-light"><tr><th>Vehicle</th><th>State</th><th>Link</th><th>Last packet</th><th>Last valid fix</th><th>Speed</th><th>Ignition</th><th>GSM</th><th>Ext V</th></tr></thead>
+          <tbody id="healthBody">
+          {% for d in devices %}
+            <tr><td><a href="{% url 'device_detail' d.id %}">{{ d.name }}</a></td><td colspan="8" class="text-muted">loading…</td></tr>
+          {% empty %}
+            <tr><td colspan="9" class="text-center text-muted py-4">No devices registered. <a href="{% url 'devices' %}">Register an IMEI</a> or run <code>python manage.py seed_demo</code>.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-4">
+    <div class="card mb-3"><div class="card-header">Last valid positions</div><div id="miniMap" style="height: 260px"></div></div>
+    <div class="card">
+      <div class="card-header">Ingestion — last 24 h</div>
+      <ul class="list-group list-group-flush small">
+        <li class="list-group-item d-flex justify-content-between">TCP receiver <span class="{% if receiver.up %}text-success{% else %}text-danger{% endif %}">{{ receiver.detail }}</span></li>
+        <li class="list-group-item d-flex justify-content-between">Connections <b>{{ stats.connections_24h }}</b></li>
+        <li class="list-group-item d-flex justify-content-between">Rejected handshakes <b>{{ stats.rejected_24h }}</b></li>
+        <li class="list-group-item d-flex justify-content-between">Raw packets <b>{{ stats.packets_24h }}</b></li>
+        <li class="list-group-item d-flex justify-content-between">Decoded records <b>{{ stats.records_24h }}</b></li>
+        <li class="list-group-item d-flex justify-content-between">Packet errors <b class="{% if stats.errors_24h %}text-danger{% endif %}">{{ stats.errors_24h }}</b></li>
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const map = L.map("miniMap", {zoomControl: false, attributionControl: false}).setView([24.45, 54.6], 9);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom: 19}).addTo(map);
+  const layer = L.layerGroup().addTo(map);
+  let fitted = false;
+  const yn = v => v === null || v === undefined ? "—" : (v ? "On" : "Off");
+  async function load() {
+    const data = await Fleet.json(Fleet.cfg.api);
+    const c = {moving: 0, idling: 0, parked: 0, nosignal: 0}, l = {online: 0, stale: 0};
+    const rows = [];
+    layer.clearLayers();
+    const pts = [];
+    for (const d of data.devices) {
+      c[d.state]++; if (l[d.link] !== undefined) l[d.link]++;
+      rows.push(`<tr><td><a href="/devices/${d.id}/">${Fleet.esc(d.name)}</a><div class="small text-muted">${Fleet.esc(d.imei)}</div></td>
+        <td><span class="badge badge-state bg-${d.state}">${Fleet.stateLabel[d.state]}</span></td>
+        <td class="link-${d.link}">${d.link}</td>
+        <td title="${Fleet.fmt(d.last_packet)}">${Fleet.ago(d.last_packet)}</td>
+        <td>${d.fix ? `${Fleet.fmt(d.fix.ts)}<div class="small text-muted">${d.fix.sats} sats · ${Fleet.ago(d.fix.ts)}</div>` : '<span class="text-muted">no valid fix</span>'}</td>
+        <td>${d.fix ? d.fix.speed + " km/h" : "—"}</td><td>${yn(d.ignition)}</td>
+        <td>${d.gsm ?? "—"}${d.gsm != null ? "/5" : ""}</td><td>${d.ext_v != null ? d.ext_v.toFixed(2) + " V" : "—"}</td></tr>`);
+      if (d.fix) {
+        L.marker([d.fix.lat, d.fix.lon], {icon: Fleet.vehicleIcon(d.state, d.fix.angle)}).bindTooltip(d.name).addTo(layer);
+        pts.push([d.fix.lat, d.fix.lon]);
+      }
+    }
+    if (rows.length) document.getElementById("healthBody").innerHTML = rows.join("");
+    for (const k in c) document.getElementById("k-" + k).textContent = c[k];
+    document.getElementById("k-online").textContent = l.online;
+    document.getElementById("k-stale").textContent = l.stale;
+    if (pts.length && !fitted) { map.fitBounds(pts, {padding: [30, 30], maxZoom: 14}); fitted = true; }
+  }
+  load(); setInterval(load, Fleet.cfg.poll * 1000);
+})();
+</script>
+{% endblock %}

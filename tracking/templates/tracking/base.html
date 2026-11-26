@@ -1,0 +1,53 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}{{ FLEET.SITE_NAME }}{% endblock %}</title>
+<link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap.min.css' %}">
+<link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
+<link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
+<link rel="stylesheet" href="{% static 'tracking/app.css' %}">
+{% block head %}{% endblock %}
+</head>
+<body class="{% block bodyclass %}{% endblock %}">
+<aside class="rail">
+  <a class="rail-brand" href="{% url 'dashboard' %}" title="{{ FLEET.SITE_NAME }}"><i class="bi bi-geo-alt-fill"></i></a>
+  <nav>
+    <a href="{% url 'dashboard' %}" class="{% if nav == 'dashboard' %}active{% endif %}"><i class="bi bi-grid-1x2"></i><span>Dashboard</span></a>
+    <a href="{% url 'live' %}" class="{% if nav == 'live' %}active{% endif %}"><i class="bi bi-broadcast-pin"></i><span>Live map</span></a>
+    <a href="{% url 'history' %}" class="{% if nav == 'history' %}active{% endif %}"><i class="bi bi-signpost-split"></i><span>History</span></a>
+    <a href="{% url 'records' %}" class="{% if nav == 'records' %}active{% endif %}"><i class="bi bi-table"></i><span>Records</span></a>
+    {% if can_view_raw %}<a href="{% url 'raw' %}" class="{% if nav == 'raw' %}active{% endif %}"><i class="bi bi-file-binary"></i><span>Raw data</span></a>{% endif %}
+    <a href="{% url 'devices' %}" class="{% if nav == 'devices' %}active{% endif %}"><i class="bi bi-cpu"></i><span>Devices</span></a>
+    <a href="{% url 'connectivity' %}" class="{% if nav == 'connectivity' %}active{% endif %}"><i class="bi bi-activity"></i><span>Connectivity</span></a>
+    <a href="{% url 'settings' %}" class="{% if nav == 'settings' %}active{% endif %}"><i class="bi bi-sliders"></i><span>Settings</span></a>
+  </nav>
+</aside>
+<div class="shell">
+  <header class="topbar">
+    <div class="d-flex align-items-center gap-3">
+      <strong class="brand-text">{{ FLEET.SITE_NAME }}</strong>
+      <span class="badge env-badge">{{ FLEET.ENVIRONMENT }}</span>
+      <span class="clock" id="uaeClock">--</span>
+    </div>
+    <div class="d-flex align-items-center gap-3">
+      <span class="rx-pill" id="rxPill" title="TCP receiver status"><i class="bi bi-circle-fill"></i> Receiver</span>
+      {% if user.is_authenticated %}
+      <span class="small text-white-50"><i class="bi bi-person-circle"></i> {{ user.username }}</span>
+      <form method="post" action="{% url 'logout' %}" class="m-0">{% csrf_token %}<button class="btn btn-sm btn-outline-light">Sign out</button></form>
+      {% endif %}
+    </div>
+  </header>
+  <main class="{% block mainclass %}content{% endblock %}">
+    {% if messages %}<div class="px-3 pt-3">{% for m in messages %}<div class="alert alert-{% if m.tags == 'error' %}danger{% else %}{{ m.tags }}{% endif %} py-2 mb-2">{{ m }}</div>{% endfor %}</div>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+<script src="{% static 'vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+<script>window.FLEET_CFG = {tz: "{{ FLEET_TZ|default:'Asia/Dubai' }}", poll: {{ FLEET.POLL_SECONDS }}, api: "{% url 'api_fleet' %}", rx: "{% url 'api_receiver' %}"};</script>
+<script src="{% static 'tracking/app.js' %}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

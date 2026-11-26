@@ -1,0 +1,52 @@
+{% extends "tracking/base.html" %}
+{% block title %}{{ d.name }} · {{ FLEET.SITE_NAME }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <h5 class="mb-0">{{ d.name }} <span class="badge badge-state bg-{{ s.state }}">{{ s.state }}</span> <span class="small link-{{ s.link }}">{{ s.link }}</span></h5>
+  <div class="d-flex gap-2">
+    <a class="btn btn-sm btn-outline-primary" href="{% url 'history' %}?device={{ d.id }}">History</a>
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'io_inspector' %}?device={{ d.id }}">Latest I/O</a>
+    {% if can_view_raw %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'raw' %}?device={{ d.id }}">Raw packets</a>{% endif %}
+  </div>
+</div>
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card mb-3"><div class="card-header">Diagnostics</div><table class="table table-sm mb-0">
+      <tr><th>IMEI</th><td>{% if full_imei %}{{ d.imei }}{% else %}{{ d.masked_imei }}{% endif %}</td></tr>
+      <tr><th>Model / firmware</th><td>{{ d.model }} / {{ d.firmware|default:"unknown" }}</td></tr>
+      <tr><th>Config revision</th><td>{{ d.config_revision|default:"—" }}</td></tr>
+      <tr><th>Last connection</th><td>{{ d.last_connection_utc|date:"Y-m-d H:i:s"|default:"never" }}</td></tr>
+      <tr><th>Last packet</th><td>{{ d.last_packet_utc|date:"Y-m-d H:i:s"|default:"never" }}</td></tr>
+      <tr><th>Newest record (device time)</th><td>{{ d.last_record_ts|date:"Y-m-d H:i:s"|default:"—" }}</td></tr>
+      <tr><th>Last valid fix</th><td>{% if d.last_fix_ts %}{{ d.last_fix_ts|date:"Y-m-d H:i:s" }}<br><span class="small">{{ d.last_fix_lat|floatformat:6 }}, {{ d.last_fix_lon|floatformat:6 }} · {{ d.last_fix_sats }} sats</span>{% else %}none{% endif %}</td></tr>
+      <tr><th>Ignition / movement</th><td>{{ d.last_ignition|yesno:"On,Off,—" }} / {{ d.last_movement|yesno:"On,Off,—" }}</td></tr>
+      <tr><th>GSM signal</th><td>{{ d.last_gsm_signal|default_if_none:"—" }}/5</td></tr>
+      <tr><th>External voltage</th><td>{{ d.last_ext_voltage|floatformat:2|default:"—" }} V</td></tr>
+      <tr><th>Packets / records / errors</th><td>{{ d.packet_count }} / {{ d.record_count }} / <span class="{% if d.error_count %}text-danger{% endif %}">{{ d.error_count }}</span></td></tr>
+      {% if d.last_error %}<tr><th>Last error</th><td class="text-danger small">{{ d.last_error }}</td></tr>{% endif %}
+    </table></div>
+    {% if user.is_staff %}
+    <div class="card"><div class="card-header">Edit</div><div class="card-body">
+      <form method="post">{% csrf_token %}
+        {% for f in form %}<div class="mb-2">
+          {% if f.field.widget.input_type == 'checkbox' %}<div class="form-check">{{ f }} <label class="form-check-label small" for="{{ f.id_for_label }}">{{ f.label }}</label></div>
+          {% else %}<label class="form-label small mb-0">{{ f.label }}</label><input class="form-control form-control-sm" name="{{ f.html_name }}" value="{{ f.value|default_if_none:'' }}">{% endif %}
+          {% for e in f.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>{% endfor %}
+        <button class="btn btn-sm btn-primary">Save</button>
+      </form></div></div>
+    {% endif %}
+  </div>
+  <div class="col-lg-8">
+    <div class="card mb-3"><div class="card-header">Recent TCP connections</div><div class="table-responsive"><table class="table table-sm mb-0">
+      <thead class="table-light"><tr><th>Opened</th><th>Closed</th><th>Remote</th><th>Source</th><th>Handshake</th><th>Frames</th><th>Close reason</th></tr></thead><tbody>
+      {% for c in connections %}<tr><td>{{ c.opened_utc|date:"m-d H:i:s" }}</td><td>{{ c.closed_utc|date:"H:i:s"|default:"open" }}</td><td>{{ c.remote }}</td><td>{{ c.source }}</td><td>{{ c.handshake }}</td><td>{{ c.frames }}</td><td class="small">{{ c.close_reason }}</td></tr>
+      {% empty %}<tr><td colspan="7" class="text-muted">No connections yet.</td></tr>{% endfor %}
+    </tbody></table></div></div>
+    <div class="card"><div class="card-header">Recent packet errors</div><table class="table table-sm mb-0">
+      <thead class="table-light"><tr><th>Received</th><th>Size</th><th>Error</th><th>ACK</th></tr></thead><tbody>
+      {% for p in errors %}<tr><td>{% if can_view_raw %}<a href="{% url 'raw_detail' p.id %}">{{ p.received_utc|date:"m-d H:i:s" }}</a>{% else %}{{ p.received_utc|date:"m-d H:i:s" }}{% endif %}</td><td>{{ p.size }}</td><td class="text-danger small">{{ p.error }}</td><td>{{ p.ack_status }}</td></tr>
+      {% empty %}<tr><td colspan="4" class="text-muted">No errors.</td></tr>{% endfor %}
+    </tbody></table></div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends "tracking/base.html" %}
+{% load tz %}
+{% block title %}Raw packet #{{ p.id }} · {{ FLEET.SITE_NAME }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <h5 class="mb-0">Raw packet #{{ p.id }}</h5>
+  <a class="btn btn-sm btn-outline-secondary" href="{% url 'raw' %}">Back to raw data</a>
+</div>
+<div class="row g-3">
+  <div class="col-lg-4"><div class="card"><table class="table table-sm mb-0">
+    <tr><th>Received (UAE)</th><td>{{ p.received_utc|date:"Y-m-d H:i:s" }}</td></tr>
+    <tr><th>Received (UTC)</th><td>{{ p.received_utc|utc|date:"Y-m-d H:i:s" }} UTC</td></tr>
+    <tr><th>Device</th><td>{{ p.device.name|default:"—" }} {% if p.device %}<span class="text-muted">{{ p.device.masked_imei }}</span>{% endif %}</td></tr>
+    <tr><th>Connection</th><td>{% if p.connection %}{{ p.connection.remote }} ({{ p.connection.source }}){% else %}—{% endif %}</td></tr>
+    <tr><th>Size</th><td>{{ p.size }} bytes{% if p.truncated %} <span class="badge bg-warning text-dark">stored truncated</span>{% endif %}</td></tr>
+    <tr><th>Codec</th><td>{{ p.codec|default:"—" }}</td></tr>
+    <tr><th>CRC</th><td>{% if p.crc_ok %}OK ({{ p.crc_value }}){% elif p.crc_ok == False %}<span class="text-danger">failed</span>{% else %}not checked{% endif %}</td></tr>
+    <tr><th>Records</th><td>{{ p.record_count }} ({{ p.new_records }} new, {{ p.duplicate_records }} duplicate)</td></tr>
+    <tr><th>Parse status</th><td>{{ p.parse_status }}</td></tr>
+    {% if p.error %}<tr><th>Error</th><td class="text-danger">{{ p.error }}</td></tr>{% endif %}
+    <tr><th>ACK</th><td>{{ p.ack_status }}{% if p.ack_value is not None %} — sent {{ p.ack_value|stringformat:"08X" }}{% endif %}</td></tr>
+    <tr><th>SHA-256</th><td class="hex">{{ p.sha256 }}</td></tr>
+  </table></div></div>
+  <div class="col-lg-8">
+    <div class="card mb-3"><div class="card-header">Frame structure</div><div class="card-body hex">
+      {% for label, h in parts %}<div class="mb-1"><span class="text-muted small d-inline-block" style="width: 130px">{{ label }}</span><span class="hex-part bg-light">{{ h }}</span></div>
+      {% empty %}{{ p.hex }}{% endfor %}
+    </div></div>
+    <div class="card"><div class="card-header">Decoded records from this frame</div>
+      <table class="table table-sm mb-0"><thead class="table-light"><tr><th>#</th><th>Device time</th><th>Lat/Lon</th><th>Speed</th><th>Sats</th><th></th></tr></thead><tbody>
+      {% for r in records %}<tr><td>{{ r.index }}</td><td>{{ r.timestamp_utc|date:"Y-m-d H:i:s" }}</td><td>{{ r.latitude|floatformat:6 }}, {{ r.longitude|floatformat:6 }}</td><td>{{ r.speed }}</td><td>{{ r.satellites }}</td><td><a href="{% url 'record_detail' r.id %}">I/O</a></td></tr>
+      {% empty %}<tr><td colspan="6" class="text-muted">{% if decoded %}All {{ decoded.records|length }} record(s) in this frame were duplicates of earlier arrivals (idempotent replay).{% elif decode_error %}Not decodable: {{ decode_error }}{% else %}No records.{% endif %}</td></tr>{% endfor %}
+      </tbody></table>
+    </div>
+  </div>
+</div>
+{% endblock %}

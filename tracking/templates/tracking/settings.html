@@ -1,0 +1,41 @@
+{% extends "tracking/base.html" %}
+{% block title %}Settings · {{ FLEET.SITE_NAME }}{% endblock %}
+{% block content %}
+<h5 class="mb-3">Settings</h5>
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card mb-3"><div class="card-header">Environment</div><table class="table table-sm mb-0">
+      <tr><th>Environment</th><td>{{ FLEET.ENVIRONMENT }}</td></tr>
+      <tr><th>Database</th><td>{{ db_engine }} ({{ db_vendor }})</td></tr>
+      <tr><th>Storage / display time zone</th><td>UTC / {{ tz }}</td></tr>
+      <tr><th>Receiver bind</th><td>{{ FLEET.RECEIVER_BIND_HOST }}:{{ FLEET.RECEIVER_PORT }}</td></tr>
+      <tr><th>Public GPS endpoint</th><td>{{ FLEET.PUBLIC_GPS_HOST }}:{{ FLEET.PUBLIC_GPS_PORT }}</td></tr>
+      <tr><th>Max frame / stored HEX</th><td>{{ FLEET.MAX_FRAME_BYTES }} B / {{ FLEET.RAW_HEX_STORE_LIMIT }} B</td></tr>
+      <tr><th>Max connections · per-IP rate</th><td>{{ FLEET.MAX_CONNECTIONS }} · {{ FLEET.CONNECTS_PER_MINUTE_PER_IP }}/min</td></tr>
+      <tr><th>Handshake / read timeout</th><td>{{ FLEET.HANDSHAKE_TIMEOUT }} s / {{ FLEET.READ_TIMEOUT }} s</td></tr>
+      <tr><th>Stale / offline after</th><td>{{ FLEET.STALE_AFTER_SECONDS }} s / {{ FLEET.OFFLINE_AFTER_SECONDS }} s</td></tr>
+      <tr><th>UI polling</th><td>{{ FLEET.POLL_SECONDS }} s</td></tr>
+    </table><div class="card-footer small text-muted">Values come from environment variables / <code>.env</code>. See README.</div></div>
+
+    <div class="card"><div class="card-header">FMC130 Configurator — bench values (from runbook)</div><table class="table table-sm mb-0 small">
+      <tr><th>GPRS → APN</th><td>Operator APN and credentials</td></tr>
+      <tr><th>GPRS → Server domain / port</th><td><b>{{ FLEET.PUBLIC_GPS_HOST }}</b> / <b>{{ FLEET.PUBLIC_GPS_PORT }}</b></td></tr>
+      <tr><th>GPRS → Protocol / ACK</th><td>TCP / AVL</td></tr>
+      <tr><th>GPRS → TLS / second server</th><td>None (controlled test only) / Disabled</td></tr>
+      <tr><th>Records</th><td>Open link 300 s, response 30 s, oldest first</td></tr>
+      <tr><th>System → Data protocol</th><td>Codec 8 Extended (receiver also accepts Codec 8)</td></tr>
+      <tr><th>System → Sleep</th><td>Disabled during powered bench test</td></tr>
+      <tr><th>Acquisition stopped</th><td>Min period 30 s / send 10 s</td></tr>
+      <tr><th>Acquisition moving</th><td>Min period 10 s / send 10 s, 100 m, 10°, 10 km/h</td></tr>
+      <tr><th>I/O</th><td>Enable 239 Ignition, 240 Movement, 21 GSM, 69 GNSS status, 181/182 PDOP/HDOP, 66 Ext V, 67/68 Battery, 200 Sleep</td></tr>
+    </table></div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card"><div class="card-header d-flex justify-content-between"><span>AVL I/O dictionary</span><span class="small text-muted">{{ mapping_version }}</span></div>
+      <div class="table-responsive" style="max-height: 640px"><table class="table table-sm mb-0">
+        <thead class="table-light sticky-top"><tr><th>ID</th><th>Name</th><th>Unit</th></tr></thead><tbody>
+        {% for id, name, unit in io_map %}<tr><td>{{ id }}</td><td>{{ name }}</td><td>{{ unit }}</td></tr>{% endfor %}
+      </tbody></table></div></div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,45 @@
+# Local hosting: web UI on http://127.0.0.1:8000 and Teltonika TCP receiver on port 5027.
+#   cp .env.example .env   (edit passwords)
+#   docker compose up -d --build
+#   docker compose --profile sim up -d simulator     # optional simulated vehicles
+services:
+  web:
+    build: .
+    command: ["web"]
+    env_file: [.env]
+    environment:
+      FLEET_SELFTEST_HOST: receiver          # web self-test reaches the receiver container
+      FLEET_ALLOWED_HOSTS: ${FLEET_ALLOWED_HOSTS:-127.0.0.1,localhost}
+    ports: ["127.0.0.1:8000:8000"]           # web stays on loopback
+    volumes: [fleetdata:/data]
+    restart: unless-stopped
+    healthcheck:    # healthy once migrations (+ optional demo seed) are done and gunicorn answers
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/login/', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  receiver:
+    build: .
+    command: ["receiver"]
+    env_file: [.env]
+    ports: ["5027:5027"]                       # raw TCP for the tracker (independent of HTTP)
+    volumes: [fleetdata:/data]
+    depends_on: [web]
+    restart: unless-stopped
+
+  simulator:
+    build: .
+    profiles: ["sim"]
+    command: ["sim", "--host", "receiver", "--port", "5027",
+              "--imei", "356307042441013,356307042441021,356307042441054", "--interval", "5"]
+    env_file: [.env]
+    volumes: [fleetdata:/data]
+    depends_on:
+      web: {condition: service_healthy}
+      receiver: {condition: service_started}
+    restart: unless-stopped
+
+volumes:
+  fleetdata:

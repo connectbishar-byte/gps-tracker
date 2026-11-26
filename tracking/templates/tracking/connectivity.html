@@ -1,0 +1,85 @@
+{% extends "tracking/base.html" %}
+{% block title %}Connectivity · {{ FLEET.SITE_NAME }}{% endblock %}
+{% block content %}
+<h5 class="mb-3">Connection diagnostics</h5>
+<div class="row g-3">
+  <div class="col-xl-5">
+    <div class="card mb-3">
+      <div class="card-header">TCP receiver</div>
+      <table class="table table-sm mb-0">
+        <tr><th>Status</th><td>{% if receiver.up %}<span class="text-success"><i class="bi bi-circle-fill"></i> listening</span>{% else %}<span class="text-danger"><i class="bi bi-circle-fill"></i> {{ receiver.detail }}</span>{% endif %}</td></tr>
+        {% if receiver.host %}
+        <tr><th>Bind</th><td>{{ receiver.host }}:{{ receiver.port }} (pid {{ receiver.pid }})</td></tr>
+        <tr><th>Active / total connections</th><td>{{ receiver.active }} / {{ receiver.total }}</td></tr>
+        <tr><th>Frames OK / bad (since start)</th><td>{{ receiver.frames_ok }} / {{ receiver.frames_bad }}</td></tr>
+        {% endif %}
+        <tr><th>Device should connect to</th><td><b>{{ FLEET.PUBLIC_GPS_HOST }}:{{ FLEET.PUBLIC_GPS_PORT }}</b> (TCP, AVL ACK, TLS none)</td></tr>
+      </table>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header">Run connectivity self-test</div>
+      <div class="card-body">
+        <p class="small text-muted mb-2">Connects to the receiver as a simulated FMC130 (IMEI {{ selftest_imei_masked }}{% if not selftest_imei_registered %}, auto-registered on first run{% endif %}) and runs the protocol acceptance checks: handshake accept/reject, official Codec 8/8E samples, fragmented and coalesced TCP, bad CRC, replay and truncated frame.</p>
+        {% if user.is_staff %}
+        <form method="post" action="{% url 'run_selftest' %}" class="row g-2">{% csrf_token %}
+          <div class="col-6"><label class="form-label small mb-0">Host</label><input class="form-control form-control-sm" name="host" value="{{ FLEET.SELFTEST_HOST }}"></div>
+          <div class="col-3"><label class="form-label small mb-0">Port</label><input class="form-control form-control-sm" name="port" value="{{ FLEET.SELFTEST_PORT }}"></div>
+          <div class="col-3"><label class="form-label small mb-0">Mode</label><select class="form-select form-select-sm" name="mode"><option value="full">Full</option><option value="quick">Quick</option></select></div>
+          <div class="col-12"><button class="btn btn-sm btn-primary"><i class="bi bi-play-fill"></i> Run test</button></div>
+        </form>
+        {% else %}<div class="small text-muted">Staff users can run the self-test.</div>{% endif %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Test from another machine / the internet</div>
+      <div class="card-body small">
+        <p class="mb-1">Prove external reachability (what a cellular tracker needs) with the standalone probe — Python 3 only, no install:</p>
+        <code class="cmd">python tools/fmc_probe.py {{ FLEET.PUBLIC_GPS_HOST }} {{ FLEET.PUBLIC_GPS_PORT }} --imei {{ FLEET.SELFTEST_IMEI }}</code>
+        <p class="mb-1 mt-2">Windows PowerShell port check:</p>
+        <code class="cmd">Test-NetConnection -ComputerName {{ FLEET.PUBLIC_GPS_HOST }} -Port {{ FLEET.PUBLIC_GPS_PORT }}</code>
+        <p class="mb-1 mt-2">Continuous simulated vehicle:</p>
+        <code class="cmd">python manage.py simulate_device --host {{ FLEET.SELFTEST_HOST }} --port {{ FLEET.SELFTEST_PORT }} --imei {{ FLEET.SELFTEST_IMEI }} --interval 5</code>
+        <p class="text-muted mt-2 mb-0">A local port check cannot prove cellular reachability. Test from a different internet connection (e.g. phone hotspot). HTTP-only tunnels cannot carry the binary protocol.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-7">
+    <div class="card mb-3">
+      <div class="card-header">Test runs</div>
+      <div class="card-body p-0">
+      {% for r in runs %}
+        <details class="border-bottom px-3 py-2" {% if forloop.first %}open{% endif %}>
+          <summary><b class="{% if r.passed %}step-ok{% else %}step-fail{% endif %}">{% if r.passed %}PASS{% else %}FAIL{% endif %}</b> · {{ r.started_utc|date:"Y-m-d H:i:s" }} · {{ r.target }} · {{ r.summary }}</summary>
+          <table class="table table-sm mb-0 mt-2"><tbody>
+          {% for s in r.steps %}<tr><td style="width: 24px">{% if s.ok %}<i class="bi bi-check-circle-fill step-ok"></i>{% else %}<i class="bi bi-x-circle-fill step-fail"></i>{% endif %}</td><td>{{ s.name }}</td><td class="small text-muted">{{ s.detail }}</td><td class="small text-end">{{ s.ms }} ms</td></tr>{% endfor %}
+          </tbody></table>
+        </details>
+      {% empty %}<div class="p-3 text-muted small">No test runs yet.</div>{% endfor %}
+      </div>
+    </div>
+    <div class="card mb-3">
+      <div class="card-header">Recent connections</div>
+      <div class="table-responsive"><table class="table table-sm mb-0">
+        <thead class="table-light"><tr><th>Opened</th><th>Device</th><th>Remote</th><th>Source</th><th>Handshake</th><th>Frames</th><th>Closed / reason</th></tr></thead><tbody>
+        {% for c in recent %}<tr class="{% if c.handshake != 'accepted' %}table-warning{% endif %}"><td>{{ c.opened_utc|date:"m-d H:i:s" }}</td><td>{{ c.device.name|default:"—" }}</td><td>{{ c.remote }}</td><td>{{ c.source }}</td><td>{{ c.handshake }}</td><td>{{ c.frames }}</td><td class="small">{{ c.closed_utc|date:"H:i:s"|default:"open" }} {{ c.close_reason }}</td></tr>
+        {% empty %}<tr><td colspan="7" class="text-muted">No connections yet.</td></tr>{% endfor %}
+      </tbody></table></div>
+    </div>
+    <div class="card">
+      <div class="card-header">Troubleshooting</div>
+      <table class="table table-sm mb-0 small">
+        <tr><th>No TCP connection</th><td>Power, SIM data/PIN, APN, GPRS status, DNS, public endpoint, firewall, CGNAT, listener bind</td></tr>
+        <tr><th>TCP opens, no records</th><td>IMEI allow-list (see rejected handshakes above), 0x01 handshake, codec selection, acquisition and sleep mode</td></tr>
+        <tr><th>Repeated packets</th><td>AVL ACK type, 4-byte ACK, DB commit, response timeout, CRC or parser failure</td></tr>
+        <tr><th>Coordinates zero / stale</th><td>Outdoor GNSS fix, satellites, GNSS status; invalid fixes are labelled, never plotted</td></tr>
+        <tr><th>Missing I/O</th><td>Enable I/O in Configurator, inspect raw IDs in I/O inspector, verify wiring/peripherals</td></tr>
+        <tr><th>Local works / VPS fails</th><td>DNS-only record, Hostinger firewall + UFW, <code>ss -ltnp</code>, service journal, external probe</td></tr>
+        <tr><th>VPS works / local fails</th><td>Public reachability, NAT forwarding, CGNAT, tunnel port, Windows firewall</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
