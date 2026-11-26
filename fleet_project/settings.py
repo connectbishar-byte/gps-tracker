@@ -150,6 +150,9 @@ SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 X_FRAME_OPTIONS = "DENY"
 SECURE_CONTENT_TYPE_NOSNIFF = True
+# Send the site origin as Referer to other sites (Django's default "same-origin" sends none), so a
+# Google Maps key restricted to https://gps.melticetech.com/* is accepted.
+SECURE_REFERRER_POLICY = env("FLEET_REFERRER_POLICY", "strict-origin-when-cross-origin")
 
 # Shared cache (login lockout counters, API throttles) in the main database so every gunicorn worker sees it.
 # Created by `manage.py createcachetable` (run by the install/update scripts and the Docker entrypoint).
