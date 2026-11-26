@@ -44,7 +44,7 @@ Check from your PC: `nslookup gps.melticetech.com` → VPS IP.
 On the VPS:
 
 ```bash
-cd /root && git clone https://github.com/connectbishar-byte/meltice-gps-tracker.git && cd meltice-gps-tracker
+cd /root && git clone https://github.com/connectbishar-byte/gps-tracker.git meltice-gps-tracker && cd meltice-gps-tracker
 ```
 
 (Private repository: use a GitHub deploy key or a fine-grained personal access token with read access.)

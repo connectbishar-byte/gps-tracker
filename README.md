@@ -108,7 +108,7 @@ Requires a **Hostinger VPS** (KVM 1 or larger — SQL Server needs 2 GB RAM; Ubu
 TCP listener on port 5027, so it cannot receive tracker data.
 
 ```bash
-# on the VPS (git clone https://github.com/connectbishar-byte/meltice-gps-tracker.git && cd meltice-gps-tracker)
+# on the VPS (git clone https://github.com/connectbishar-byte/gps-tracker.git meltice-gps-tracker && cd meltice-gps-tracker)
 sudo bash deploy/hostinger/install.sh      # SQL Server 2022 Express in Docker on 127.0.0.1:1433 + app + Nginx
 # existing SQL Server instead:  sudo DB_MODE=external DB_HOST=... DB_NAME=... DB_USER=... DB_PASSWORD=... bash deploy/hostinger/install.sh
 sudo certbot --nginx -d fleet.melticetech.com
