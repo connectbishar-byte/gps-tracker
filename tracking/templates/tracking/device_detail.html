@@ -53,6 +53,6 @@
 </div>
 {% endblock %}
 {% block scripts %}
-{% load static %}<script src="{% static 'tracking/vehicle-panel.js' %}"></script>
+{% load static %}<script src="{% static 'tracking/vehicle-panel.js' %}?v={{ ASSET_V }}"></script>
 <script>VehiclePanel.create(document.getElementById("vpanel")).show({{ d.id }});</script>
 {% endblock %}

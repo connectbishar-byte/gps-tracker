@@ -83,4 +83,4 @@
   </div>
 </div>
 {% endblock %}
-{% block scripts %}{% if integrations %}<script src="{% static 'tracking/settings.js' %}"></script>{% endif %}{% endblock %}
+{% block scripts %}{% if integrations %}<script src="{% static 'tracking/settings.js' %}?v={{ ASSET_V }}"></script>{% endif %}{% endblock %}

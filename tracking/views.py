@@ -22,9 +22,22 @@ from . import codec, integrations, io_dictionary
 from .models import AVLRecord, Connection, Device, RawPacket, ReceiverHeartbeat, TestRun, mask_imei
 
 
+def _asset_version():
+    """Changes whenever our own JS/CSS changes, so browsers and Cloudflare fetch the new copy after a deploy."""
+    import os
+    folder = os.path.join(os.path.dirname(__file__), "static", "tracking")
+    try:
+        return str(int(max(os.path.getmtime(os.path.join(folder, f)) for f in os.listdir(folder))))
+    except (OSError, ValueError):
+        return "1"
+
+
+ASSET_V = _asset_version()
+
+
 def fleet_context(request):
     ctx = {"FLEET": settings.FLEET, "FLEET_TZ": settings.TIME_ZONE, "can_view_raw": can_view_raw(request.user),
-           "GOOGLE_MAPS_KEY": ""}
+           "GOOGLE_MAPS_KEY": "", "ASSET_V": ASSET_V}
     if request.user.is_authenticated:  # the key is only handed to signed-in users
         try:
             ctx["GOOGLE_MAPS_KEY"] = integrations.get("google_maps_api_key")

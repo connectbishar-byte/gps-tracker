@@ -53,5 +53,5 @@
 {% endblock %}
 {% block scripts %}
 <script>window.TERM_CFG = {api: "{% url 'api_port_events' %}", poll: {{ poll_ms }}, raw: "{% url 'raw' %}"};</script>
-<script src="{% static 'tracking/terminal.js' %}"></script>
+<script src="{% static 'tracking/terminal.js' %}?v={{ ASSET_V }}"></script>
 {% endblock %}

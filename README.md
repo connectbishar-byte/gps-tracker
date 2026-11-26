@@ -226,13 +226,19 @@ Sign in as an admin and open **Settings → Integrations**.
 
 | Setting | What it does |
 |---|---|
-| Google Maps API key | Adds **Google Road, Satellite and Hybrid** to the dashboard, live map and history (layer button, top right; the choice is remembered). Without a key, or if Google rejects it, the maps use OpenStreetMap / Esri imagery and show a notice. |
+| Google Maps API key | Adds **Google Road, Satellite, Hybrid and Terrain** to the dashboard, live map and history (layer button, top right; the choice is remembered). If Google rejects the key, the Google maps are hidden and a notice names Google's reason (for example `RefererNotAllowedMapError`) and what to change in Google Cloud. |
 | OpenAI API key and model | Stored for the upcoming AI features. Nothing calls OpenAI yet. |
 
 Keys are encrypted in the database with a key derived from `DJANGO_SECRET_KEY`, shown only masked
 (`AIza…1234`), and each has a **Test key** button. Only staff can see or change them. They can also be set
 as environment variables instead (`FLEET_GOOGLE_MAPS_API_KEY`, `OPENAI_API_KEY`, `OPENAI_MODEL`); a value
 saved in Settings wins. If `DJANGO_SECRET_KEY` ever changes, enter the keys again.
+
+Free maps that need no key are always in the layer menu: OpenStreetMap, OSM Humanitarian, CARTO Light /
+Voyager / Dark, Esri Satellite / Streets / Topographic and OpenTopoMap. They are free public tile services
+with fair-use limits (CARTO and Esri basemaps are free for light or non-commercial use; heavy commercial use
+needs their paid plans). Our own JS/CSS URLs carry `?v=<version>`, so a deploy is picked up past
+browser and Cloudflare caches.
 
 **Getting a Google Maps key:** Google Cloud Console → create a project → enable billing → *APIs & Services →
 Library* → enable **Maps JavaScript API** → *Credentials → Create credentials → API key*. Then restrict it:
