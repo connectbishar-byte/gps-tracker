@@ -9,7 +9,7 @@ from django.contrib import messages
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.cache import cache
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.http import HttpResponse, JsonResponse
@@ -18,12 +18,19 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_POST
 
-from . import codec, io_dictionary
+from . import codec, integrations, io_dictionary
 from .models import AVLRecord, Connection, Device, RawPacket, ReceiverHeartbeat, TestRun, mask_imei
 
 
 def fleet_context(request):
-    return {"FLEET": settings.FLEET, "FLEET_TZ": settings.TIME_ZONE, "can_view_raw": can_view_raw(request.user)}
+    ctx = {"FLEET": settings.FLEET, "FLEET_TZ": settings.TIME_ZONE, "can_view_raw": can_view_raw(request.user),
+           "GOOGLE_MAPS_KEY": ""}
+    if request.user.is_authenticated:  # the key is only handed to signed-in users
+        try:
+            ctx["GOOGLE_MAPS_KEY"] = integrations.get("google_maps_api_key")
+        except Exception:  # noqa: BLE001 - a settings problem must never break page rendering
+            pass
+    return ctx
 
 
 def can_view_raw(user) -> bool:
@@ -374,7 +381,43 @@ def settings_page(request):
         "mapping_version": io_dictionary.MAPPING_VERSION,
         "io_map": sorted((k, v[0], v[3]) for k, v in io_dictionary.IO_MAP.items()),
         "tz": settings.TIME_ZONE,
+        "integrations": integrations.status() if request.user.is_staff else None,
     })
+
+
+staff_required = user_passes_test(lambda u: u.is_active and u.is_staff)
+
+
+@login_required
+@staff_required
+@require_POST
+def settings_integrations(request):
+    """Save integration settings. A blank field keeps the saved value; the Remove box clears it."""
+    changed = []
+    for name, (label, _env, _secret) in integrations.FIELDS.items():
+        value = (request.POST.get(name) or "").strip()
+        if request.POST.get("clear_" + name):
+            integrations.save(name, "", request.user.get_username())
+            changed.append(f"{label} removed")
+        elif value:
+            if len(value) > 500 or any(c.isspace() for c in value):
+                messages.error(request, f"{label}: that does not look like a valid value.")
+                continue
+            integrations.save(name, value, request.user.get_username())
+            changed.append(f"{label} saved")
+    messages.success(request, "; ".join(changed) + "." if changed else "Nothing changed.")
+    return redirect(reverse("settings") + "#integrations")
+
+
+@login_required
+@staff_required
+@require_POST
+def settings_test_openai(request):
+    key = (request.POST.get("openai_api_key") or "").strip() or integrations.get("openai_api_key")
+    model = (request.POST.get("openai_model") or "").strip() or integrations.get("openai_model")
+    if not key:
+        return JsonResponse({"ok": False, "detail": "Enter an OpenAI API key first."})
+    return JsonResponse(integrations.test_openai(key, model))
 
 
 # ---------------------------------------------------------------------------

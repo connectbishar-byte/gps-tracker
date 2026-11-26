@@ -182,3 +182,18 @@ class PortEvent(models.Model):
 
     def __str__(self):
         return f"{self.ts:%H:%M:%S} {self.kind} {self.remote} {self.message}"
+
+
+class IntegrationSetting(models.Model):
+    """
+    Admin-editable integration settings (Google Maps key, OpenAI key and model). Values are encrypted
+    at rest with a key derived from DJANGO SECRET_KEY - see tracking/integrations.py. Read them only
+    through integrations.get(); never directly.
+    """
+    key = models.CharField(max_length=64, unique=True)
+    value = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.CharField(max_length=150, blank=True)
+
+    def __str__(self):
+        return self.key

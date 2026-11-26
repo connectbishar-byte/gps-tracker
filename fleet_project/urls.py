@@ -19,6 +19,8 @@ urlpatterns = [
     path("connectivity/", views.connectivity, name="connectivity"),
     path("connectivity/selftest/", views.run_selftest, name="run_selftest"),
     path("settings/", views.settings_page, name="settings"),
+    path("settings/integrations/", views.settings_integrations, name="settings_integrations"),
+    path("settings/integrations/test-openai/", views.settings_test_openai, name="settings_test_openai"),
     path("terminal/", views.terminal, name="terminal"),
     path("account/password/", views.PasswordChange.as_view(), name="password_change"),
     path("api/v1/", include("tracking.api_urls")),

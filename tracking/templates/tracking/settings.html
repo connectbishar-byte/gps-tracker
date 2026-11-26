@@ -1,7 +1,48 @@
 {% extends "tracking/base.html" %}
+{% load static %}
 {% block title %}Settings · {{ FLEET.SITE_NAME }}{% endblock %}
 {% block content %}
 <h5 class="mb-3">Settings</h5>
+{% if integrations %}
+<div class="card mb-3" id="integrations">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-plug me-1"></i> Integrations</span><span class="small text-muted">Admins only · stored encrypted</span>
+  </div>
+  <form method="post" action="{% url 'settings_integrations' %}" autocomplete="off" class="card-body">
+    {% csrf_token %}
+    <div class="row g-4">
+      {% for f in integrations %}{% if f.name == "google_maps_api_key" %}
+      <div class="col-lg-6">
+        <h6 class="mb-1"><i class="bi bi-map me-1"></i> Google Maps</h6>
+        <p class="small text-muted mb-2">Adds Google Road, Satellite and Hybrid maps to the dashboard, live map and history.
+          Without a key the maps use OpenStreetMap.</p>
+        {% include "tracking/_integration_field.html" with f=f placeholder="AIza…" %}
+        <div class="d-flex gap-2 align-items-center mt-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary text-nowrap flex-shrink-0" id="testGoogle"><i class="bi bi-play-circle"></i> Test key</button>
+          <span class="small" id="googleResult"></span>
+        </div>
+        <div id="googleFrameWrap" class="mt-2" hidden></div>
+      </div>
+      {% endif %}{% endfor %}
+      <div class="col-lg-6">
+        <h6 class="mb-1"><i class="bi bi-stars me-1"></i> OpenAI</h6>
+        <p class="small text-muted mb-2">Saved for the upcoming AI features (trip summaries, alerts in plain language). Nothing calls OpenAI yet.</p>
+        {% for f in integrations %}{% if f.name == "openai_api_key" %}{% include "tracking/_integration_field.html" with f=f placeholder="sk-…" %}{% endif %}{% endfor %}
+        {% for f in integrations %}{% if f.name == "openai_model" %}{% include "tracking/_integration_field.html" with f=f placeholder="Run the test to list your models" list="openaiModels" %}{% endif %}{% endfor %}
+        <datalist id="openaiModels"></datalist>
+        <div class="d-flex gap-2 align-items-center mt-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary text-nowrap flex-shrink-0" id="testOpenai"><i class="bi bi-play-circle"></i> Test key</button>
+          <span class="small" id="openaiResult"></span>
+        </div>
+      </div>
+    </div>
+    <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+      <span class="small text-muted">Leave a field empty to keep the saved value.</span>
+      <button class="btn btn-primary btn-sm"><i class="bi bi-check2"></i> Save</button>
+    </div>
+  </form>
+</div>
+{% endif %}
 <div class="row g-3">
   <div class="col-lg-6">
     <div class="card mb-3"><div class="card-header">Environment</div><table class="table table-sm mb-0">
@@ -39,3 +80,4 @@
   </div>
 </div>
 {% endblock %}
+{% block scripts %}{% if integrations %}<script src="{% static 'tracking/settings.js' %}"></script>{% endif %}{% endblock %}

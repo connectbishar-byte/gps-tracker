@@ -52,7 +52,7 @@
 <script>
 (function () {
   const map = L.map("miniMap", {zoomControl: false, attributionControl: false}).setView([24.45, 54.6], 9);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom: 19}).addTo(map);
+  Fleet.baseLayers(map, {control: false});
   const layer = L.layerGroup().addTo(map);
   let fitted = false;
   const yn = v => v === null || v === undefined ? "—" : (v ? "On" : "Off");

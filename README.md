@@ -179,6 +179,26 @@ curl -H "Authorization: Token $TOKEN" "https://fleet.melticetech.com/api/v1/port
 | `/api/v1/connections/`, `/api/v1/receiver/` | TCP connections incl. rejected handshakes; receiver health |
 | `/api/v1/tests/`, `POST /api/v1/tests/run/` | connectivity self-test results; run one (staff) |
 
+## Google Maps and OpenAI keys
+
+Sign in as an admin and open **Settings → Integrations**.
+
+| Setting | What it does |
+|---|---|
+| Google Maps API key | Adds **Google Road, Satellite and Hybrid** to the dashboard, live map and history (layer button, top right; the choice is remembered). Without a key, or if Google rejects it, the maps use OpenStreetMap / Esri imagery and show a notice. |
+| OpenAI API key and model | Stored for the upcoming AI features. Nothing calls OpenAI yet. |
+
+Keys are encrypted in the database with a key derived from `DJANGO_SECRET_KEY`, shown only masked
+(`AIza…1234`), and each has a **Test key** button. Only staff can see or change them. They can also be set
+as environment variables instead (`FLEET_GOOGLE_MAPS_API_KEY`, `OPENAI_API_KEY`, `OPENAI_MODEL`); a value
+saved in Settings wins. If `DJANGO_SECRET_KEY` ever changes, enter the keys again.
+
+**Getting a Google Maps key:** Google Cloud Console → create a project → enable billing → *APIs & Services →
+Library* → enable **Maps JavaScript API** → *Credentials → Create credentials → API key*. Then restrict it:
+*Application restrictions → Websites* → `https://gps.melticetech.com/*` (plus `http://127.0.0.1:8000/*`
+for local testing), and *API restrictions* → Maps JavaScript API. The key is visible to signed-in browsers
+by design, so the website restriction is what protects it.
+
 ## Configuration
 
 All settings are environment variables (`.env` locally, `/etc/meltice-gps-tracker/fleet.env` on Hostinger);
