@@ -129,6 +129,47 @@ python tools/fmc_probe.py gps.melticetech.com 5027
 
 ---
 
+## Vehicle panel — every parameter, graphically
+
+Click a vehicle on the **Live map** (or open its **Device** page) to see:
+
+- a **speedometer**, **temperature** (AVL #72, needs a Dallas probe) and **vehicle battery** (#66) dials, and a **heading compass**
+- tiles for **GSM signal** and operator, **satellites** and HDOP, **backup battery** (#113 / #67) and **altitude**
+- status lights: ignition, movement, GNSS fix, over 80 km/h, DIN/DOUT, jamming, battery unplugged, towing (those the tracker sends)
+- **trip today**, **odometer** and **moving time today**
+- **30-minute trends** for speed, temperature and battery voltage
+- **All parameters**, grouped (position, inputs and outputs, power, sensors, distance, network, events). Click any one to
+  chart its history over 1 hour to 60 days, with min / average / max and a hover read-out.
+
+![Vehicle panel](docs/screenshots/vehicle-panel-dark.png)
+
+The same data is in the REST API: `GET /api/v1/devices/{id}/telemetry/` and
+`GET /api/v1/devices/{id}/parameters/{avl_id or speed|altitude|satellites|angle}/?hours=24`.
+
+### How parameters are stored (SQL Server)
+
+| Table | One row per | Holds |
+|---|---|---|
+| `tracking_avlrecord` | AVL record | time, latitude, longitude, altitude, heading, satellites, speed, priority, event id |
+| `tracking_iovalue` | parameter per record | vehicle, time, AVL id, name, scaled value, display text, unit, raw HEX |
+| `tracking_rawpacket` | TCP frame | the exact bytes received, CRC, ACK |
+
+`tracking_iovalue` is indexed by (vehicle, AVL id, time), so any parameter can be charted or queried directly, e.g.
+`SELECT timestamp_utc, value FROM tracking_iovalue WHERE device_id = 3 AND avl_id = 66 ORDER BY timestamp_utc`.
+
+### Data retention per vehicle
+
+Each vehicle has **Data retention (days)** on its Device page (default 60, set by `FLEET_DEFAULT_RETENTION_DAYS` for
+new vehicles; also in the API as `retention_days`). A daily purge deletes that vehicle's records, parameter values,
+raw packets and closed connections older than its retention, in small batches so the receiver keeps writing.
+
+- Hostinger (native): `fleet-purge.timer` runs `manage.py purge_data` every day at 03:15 server time.
+  Check it with `systemctl list-timers fleet-purge.timer` and `journalctl -u fleet-purge`.
+- Docker: the `maintenance` service runs the purge every 24 hours.
+- By hand: `python manage.py purge_data --dry-run` shows what would be deleted; drop `--dry-run` to delete.
+
+Settings shows the default and when the last purge ran.
+
 ## Port terminal — see everything arriving on the port
 
 Web: **Port terminal** in the left menu (staff and `raw_data` users). Each line is one event:
@@ -178,6 +219,26 @@ curl -H "Authorization: Token $TOKEN" "https://fleet.melticetech.com/api/v1/port
 | `/api/v1/port-events/?after=<id>` | live port event stream (what the terminal shows) |
 | `/api/v1/connections/`, `/api/v1/receiver/` | TCP connections incl. rejected handshakes; receiver health |
 | `/api/v1/tests/`, `POST /api/v1/tests/run/` | connectivity self-test results; run one (staff) |
+
+## Google Maps and OpenAI keys
+
+Sign in as an admin and open **Settings → Integrations**.
+
+| Setting | What it does |
+|---|---|
+| Google Maps API key | Adds **Google Road, Satellite and Hybrid** to the dashboard, live map and history (layer button, top right; the choice is remembered). Without a key, or if Google rejects it, the maps use OpenStreetMap / Esri imagery and show a notice. |
+| OpenAI API key and model | Stored for the upcoming AI features. Nothing calls OpenAI yet. |
+
+Keys are encrypted in the database with a key derived from `DJANGO_SECRET_KEY`, shown only masked
+(`AIza…1234`), and each has a **Test key** button. Only staff can see or change them. They can also be set
+as environment variables instead (`FLEET_GOOGLE_MAPS_API_KEY`, `OPENAI_API_KEY`, `OPENAI_MODEL`); a value
+saved in Settings wins. If `DJANGO_SECRET_KEY` ever changes, enter the keys again.
+
+**Getting a Google Maps key:** Google Cloud Console → create a project → enable billing → *APIs & Services →
+Library* → enable **Maps JavaScript API** → *Credentials → Create credentials → API key*. Then restrict it:
+*Application restrictions → Websites* → `https://gps.melticetech.com/*` (plus `http://127.0.0.1:8000/*`
+for local testing), and *API restrictions* → Maps JavaScript API. The key is visible to signed-in browsers
+by design, so the website restriction is what protects it.
 
 ## Configuration
 

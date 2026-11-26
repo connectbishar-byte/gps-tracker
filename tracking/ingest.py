@@ -141,7 +141,7 @@ def ingest_frame(conn_id: int, device_id: int, imei: str, frame: bytes) -> Inges
                 info = iod.interpret(e.avl_id, e.raw)
                 io_by_id[e.avl_id] = info["value"]
                 io_rows.append(IOValue(
-                    record=ar, avl_id=e.avl_id, byte_length=e.length, raw_hex=e.raw.hex().upper()[:2048],
+                    record=ar, device=device, timestamp_utc=ts, avl_id=e.avl_id, byte_length=e.length, raw_hex=e.raw.hex().upper()[:2048],
                     value=info["value"] if isinstance(info["value"], (int, float)) and abs(info["value"]) < 1e15 else None,
                     text=str(info["text"])[:200], name=info["name"][:80], unit=info["unit"], known=info["known"],
                     mapping_version=iod.MAPPING_VERSION,

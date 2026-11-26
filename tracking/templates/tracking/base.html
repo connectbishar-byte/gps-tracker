@@ -78,7 +78,8 @@
 </div>
 <script src="{% static 'vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
 <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
-<script>window.FLEET_CFG = {tz: "{{ FLEET_TZ|default:'Asia/Dubai' }}", poll: {{ FLEET.POLL_SECONDS }}, api: "{% url 'api_fleet' %}", rx: "{% url 'api_receiver' %}"};</script>
+{% if GOOGLE_MAPS_KEY %}<script src="{% static 'vendor/googlemutant/Leaflet.GoogleMutant.js' %}"></script>{% endif %}
+<script>window.FLEET_CFG = {tz: "{{ FLEET_TZ|default:'Asia/Dubai' }}", poll: {{ FLEET.POLL_SECONDS }}, api: "{% url 'api_fleet' %}", rx: "{% url 'api_receiver' %}", gkey: "{{ GOOGLE_MAPS_KEY|escapejs }}", raw: {{ can_view_raw|yesno:"true,false" }}};</script>
 <script src="{% static 'tracking/app.js' %}"></script>
 {% block scripts %}{% endblock %}
 </body>

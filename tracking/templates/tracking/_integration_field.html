@@ -1,0 +1,16 @@
+<div class="mb-2">
+  <label class="form-label small mb-1" for="id_{{ f.name }}">{{ f.label }}</label>
+  <input class="form-control form-control-sm font-monospace" id="id_{{ f.name }}" name="{{ f.name }}"
+         {% if f.secret %}type="password" autocomplete="new-password"{% else %}type="text"{% endif %}
+         {% if list %}list="{{ list }}"{% endif %} spellcheck="false"
+         placeholder="{% if f.set %}{% if f.secret %}Type a new key to replace the saved one{% else %}{{ f.display }}{% endif %}{% else %}{{ placeholder }}{% endif %}">
+  <div class="form-text small d-flex justify-content-between">
+    <span>
+      {% if f.unreadable %}<span class="text-danger">Saved value can't be read (the server's secret key changed). Enter it again.</span>
+      {% elif f.source == "settings" %}<i class="bi bi-check-circle text-success"></i> Saved{% if f.secret %} ({{ f.display }}){% endif %}{% if f.updated_by %} by {{ f.updated_by }}{% endif %}
+      {% elif f.source == "environment" %}<i class="bi bi-hdd text-info"></i> From the server environment (<code>{{ f.env }}</code>){% if f.secret %}: {{ f.display }}{% endif %}. A value saved here overrides it.
+      {% else %}Not set{% endif %}
+    </span>
+    {% if f.source == "settings" %}<label class="form-check-label"><input type="checkbox" class="form-check-input me-1" name="clear_{{ f.name }}">Remove</label>{% endif %}
+  </div>
+</div>

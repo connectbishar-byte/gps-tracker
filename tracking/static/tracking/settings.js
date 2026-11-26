@@ -1,0 +1,65 @@
+/* Settings page: test buttons for the Google Maps and OpenAI keys. */
+(function () {
+  const $ = id => document.getElementById(id);
+  const csrf = document.querySelector("#integrations input[name=csrfmiddlewaretoken]").value;
+  const show = (el, ok, text) => {
+    el.className = "small " + (ok === null ? "text-muted" : ok ? "text-success" : "text-danger");
+    el.innerHTML = (ok === null ? '<span class="spinner-border spinner-border-sm me-1"></span>' :
+      `<i class="bi ${ok ? "bi-check-circle" : "bi-x-circle"} me-1"></i>`) + Fleet.esc(text);
+  };
+
+  // Google Maps: load the Maps API in a throw-away iframe so each test starts clean and a bad
+  // key can't break this page. Google reports a rejected key through window.gm_authFailure.
+  const gBtn = $("testGoogle");
+  if (gBtn) {
+    let pending = null;
+    window.addEventListener("message", e => {
+      if (!pending || e.source !== pending.win || !e.data || e.data.mgt !== "gmaps") return;
+      clearTimeout(pending.timer);
+      show($("googleResult"), e.data.ok, e.data.text);
+      if (!e.data.ok) $("googleFrameWrap").hidden = true;
+      pending = null;
+    });
+    gBtn.addEventListener("click", () => {
+      const key = $("id_google_maps_api_key").value.trim() || (Fleet.cfg.gkey || "");
+      if (!key) { show($("googleResult"), false, "Enter a key first."); return; }
+      const wrap = $("googleFrameWrap");
+      wrap.hidden = false;
+      wrap.innerHTML = "";
+      const f = document.createElement("iframe");
+      f.style.cssText = "width:100%;height:180px;border:1px solid var(--line);border-radius:8px";
+      f.srcdoc = `<!doctype html><html><body style="margin:0"><div id="m" style="height:180px"></div><script>
+        const say = (ok, text) => parent.postMessage({mgt: "gmaps", ok, text}, "*");
+        window.gm_authFailure = () => say(false, "Google rejected the key. Check that the Maps JavaScript API is enabled, billing is on, and this site is allowed under the key's website restrictions.");
+        window.ready = () => {
+          const map = new google.maps.Map(document.getElementById("m"), {center: {lat: 24.45, lng: 54.6}, zoom: 10, disableDefaultUI: true});
+          google.maps.event.addListenerOnce(map, "tilesloaded", () => setTimeout(() => say(true, "Key works. Google Maps loaded."), 1500));
+        };
+        const s = document.createElement("script");
+        s.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(${JSON.stringify(key)}) + "&callback=ready";
+        s.onerror = () => say(false, "Could not load Google Maps from this browser (network or ad blocker).");
+        document.head.appendChild(s);
+      <\/script></body></html>`;
+      wrap.appendChild(f);
+      show($("googleResult"), null, "Testing…");
+      pending = {win: f.contentWindow, timer: setTimeout(() => { show($("googleResult"), false, "No answer from Google within 20 s."); pending = null; }, 20000)};
+    });
+  }
+
+  // OpenAI: the server calls GET /v1/models with the key (free, sends no data) and lists the models.
+  const oBtn = $("testOpenai");
+  if (oBtn) oBtn.addEventListener("click", async () => {
+    const body = new URLSearchParams({openai_api_key: $("id_openai_api_key").value.trim(), openai_model: $("id_openai_model").value.trim()});
+    show($("openaiResult"), null, "Testing…");
+    oBtn.disabled = true;
+    try {
+      const r = await fetch(oBtn.closest("form").action + "test-openai/", {method: "POST", body, credentials: "same-origin",
+        headers: {"X-CSRFToken": csrf, "Accept": "application/json"}});
+      const d = await r.json();
+      show($("openaiResult"), d.ok, d.detail);
+      if (d.models) $("openaiModels").innerHTML = d.models.map(m => `<option value="${Fleet.esc(m)}">`).join("");
+    } catch (e) {
+      show($("openaiResult"), false, "Test failed: " + e.message);
+    } finally { oBtn.disabled = false; }
+  });
+})();

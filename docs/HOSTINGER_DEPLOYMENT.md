@@ -171,6 +171,13 @@ Quick trial without SQL Server: `sudo DB_MODE=sqlite bash deploy/hostinger/insta
   Restore: `RESTORE DATABASE meltice_gps_tracker FROM DISK = '/var/opt/mssql/backup/<file>.bak' WITH REPLACE`
   in the sa console, with both services stopped.
 * Port terminal events are pruned automatically after `FLEET_PORT_LOG_RETENTION_HOURS` (72 h).
+* Vehicle data is purged daily at 03:15 by `fleet-purge.timer`, using each vehicle's **Data retention (days)**
+  (default 60). Check: `systemctl list-timers fleet-purge.timer`, `journalctl -u fleet-purge -n 20`.
+  Run now: `sudo systemctl start fleet-purge` (or `... manage.py purge_data --dry-run` to preview).
+* **Updating to a new version:** on the VPS, `cd /root/meltice-gps-tracker && git pull && sudo bash deploy/hostinger/update.sh`.
+  It backs up the database, copies the code, installs requirements, applies migrations, installs the purge timer
+  and restarts both services. The first update after this release adds two columns to the parameter table and
+  fills them from existing records; on a large table that can take a few minutes.
 * Logs rotate automatically (5 × 5 MB per process) and also go to `journalctl`.
 * Change the admin password after first login (`/admin/` → Users).
 

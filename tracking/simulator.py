@@ -64,6 +64,11 @@ def make_record(lat: float, lon: float, speed: int, angle: int, ts_ms: int | Non
         io_int(68, random.randint(0, 40), 2),
         io_int(24, speed, 2),
         io_int(16, odometer_m, 4),
+        io_int(72, random.randint(318, 372), 2, signed=True),  # Dallas temperature 1, 0.1 °C
+        io_int(113, random.randint(92, 100), 1),          # backup battery level %
+        io_int(241, 42403, 4),                            # active GSM operator (MCC/MNC)
+        io_int(1, int(ignition), 1),                      # DIN1 wired to ignition on the bench
+        io_int(179, 0, 1),                                # DOUT1
     ]
     if codec_id == CODEC_8E:
         io.append(io_int(11, 8997103118812345678 % (2**63), 8))

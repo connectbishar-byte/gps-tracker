@@ -21,6 +21,11 @@ case "$1" in
     wait_for_schema
     exec python manage.py run_receiver --host 0.0.0.0 --port 5027
     ;;
+  maintenance)
+    export FLEET_PROCESS=maintenance
+    wait_for_schema
+    exec python manage.py purge_data --loop-hours "${FLEET_PURGE_EVERY_HOURS:-24}"
+    ;;
   sim)
     export FLEET_PROCESS=simulator
     shift

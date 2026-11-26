@@ -8,3 +8,4 @@ whitenoise>=6.7
 # (the Dockerfile and deploy/hostinger/install.sh install it).
 mssql-django>=1.6
 pyodbc>=5.1
+cryptography>=42
