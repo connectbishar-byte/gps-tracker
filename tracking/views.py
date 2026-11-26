@@ -292,7 +292,7 @@ def raw_detail(request, pk):
 class DeviceForm(forms.ModelForm):
     class Meta:
         model = Device
-        fields = ["imei", "name", "plate", "group", "model", "firmware", "config_revision", "enabled", "notes"]
+        fields = ["imei", "name", "plate", "group", "model", "firmware", "config_revision", "enabled", "retention_days", "notes"]
         widgets = {"notes": forms.Textarea(attrs={"rows": 2})}
 
     def clean_imei(self):
@@ -382,7 +382,15 @@ def settings_page(request):
         "io_map": sorted((k, v[0], v[3]) for k, v in io_dictionary.IO_MAP.items()),
         "tz": settings.TIME_ZONE,
         "integrations": integrations.status() if request.user.is_staff else None,
+        "last_purge": _last_purge(),
     })
+
+
+def _last_purge():
+    lp = cache.get("purge:last")
+    if lp:
+        lp = {**lp, "at": parse_datetime(lp["at"])}
+    return lp
 
 
 staff_required = user_passes_test(lambda u: u.is_active and u.is_staff)
@@ -428,6 +436,31 @@ def api_fleet(request):
     now = timezone.now()
     data = [device_status(d, now) for d in Device.objects.all()]
     return JsonResponse({"server_time": now.isoformat(), "devices": data, "receiver": receiver_status()})
+
+
+@login_required
+def api_vehicle(request, pk):
+    """Graphical vehicle panel data (same as /api/v1/devices/<id>/telemetry/, for the session-based UI)."""
+    from . import telemetry
+    d = get_object_or_404(Device, pk=pk)
+    try:
+        minutes = max(5, min(1440, int(request.GET.get("minutes") or 30)))
+    except ValueError:
+        minutes = 30
+    return JsonResponse(telemetry.vehicle(d, minutes))
+
+
+@login_required
+def api_vehicle_param(request, pk, key):
+    from . import telemetry
+    d = get_object_or_404(Device, pk=pk)
+    if not (key in telemetry.GPS_PARAMS or key.isdigit()):
+        return JsonResponse({"error": "Unknown parameter"}, status=400)
+    try:
+        hours = max(0.1, min(2160.0, float(request.GET.get("hours") or 24)))
+    except ValueError:
+        hours = 24
+    return JsonResponse(telemetry.parameter_history(d, key, hours))
 
 
 @login_required

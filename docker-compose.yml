@@ -59,6 +59,19 @@ services:
       web: {condition: service_healthy}
     restart: unless-stopped
 
+  maintenance:                                      # daily purge of data older than each vehicle's retention
+    build: .
+    command: ["maintenance"]
+    env_file: [.env]
+    environment:
+      FLEET_DB_ENGINE: mssql
+      FLEET_DB_HOST: db
+      FLEET_DB_PORT: "1433"
+    volumes: [fleetdata:/data]
+    depends_on:
+      web: {condition: service_healthy}
+    restart: unless-stopped
+
   simulator:
     build: .
     profiles: ["sim"]

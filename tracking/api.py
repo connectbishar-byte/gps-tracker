@@ -30,7 +30,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
-from . import codec
+from . import codec, telemetry
 from .models import AVLRecord, Connection, Device, IOValue, PortEvent, RawPacket, TestRun, mask_imei
 from .views import can_view_raw, device_status, receiver_status
 
@@ -129,7 +129,7 @@ class DeviceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Device
         fields = ["id", "imei", "name", "plate", "group", "model", "firmware", "config_revision", "enabled", "notes",
-                  "created_utc", "status"]
+                  "retention_days", "created_utc", "status"]
         read_only_fields = ["created_utc"]
 
     def get_status(self, obj) -> dict:
@@ -189,6 +189,45 @@ class DeviceViewSet(viewsets.ModelViewSet):
                 "angle": r.angle, "alt": r.altitude, "sats": r.satellites, "valid": r.valid_fix, "late": r.late}
                for r in qs.order_by("timestamp_utc", "id")[:20000]]
         return Response(HistoryPointSerializer(pts, many=True).data)
+
+    @extend_schema(parameters=[OpenApiParameter("minutes", OpenApiTypes.INT, description="Trend window, default 30, max 1440")],
+                   responses=OpenApiTypes.OBJECT)
+    @action(detail=True, methods=["get"])
+    def telemetry(self, request, pk=None):
+        """Everything the graphical vehicle panel shows: status, the latest value of every parameter,
+        today's distance and moving time, odometer, and speed / temperature / voltage trends."""
+        return Response(_vehicle_payload(self.get_object(), request))
+
+    @extend_schema(parameters=[
+        OpenApiParameter("key", OpenApiTypes.STR, OpenApiParameter.PATH,
+                         description="AVL I/O id (e.g. 66) or a GPS field: speed, altitude, satellites, angle"),
+        OpenApiParameter("hours", OpenApiTypes.NUMBER, description="Window ending at the last record, default 24, max 2160")],
+        responses=OpenApiTypes.OBJECT)
+    @action(detail=True, methods=["get"], url_path=r"parameters/(?P<key>[a-z]+|\d+)")
+    def parameter(self, request, pk=None, key=None):
+        """History of one parameter (downsampled to at most 1,500 points) with min / max / average."""
+        return Response(_parameter_payload(self.get_object(), key, request))
+
+
+def _vehicle_payload(dev, request):
+    try:
+        minutes = max(5, min(1440, int(request.query_params.get("minutes") or request.GET.get("minutes") or 30)))
+    except ValueError:
+        raise ValidationError({"minutes": "Must be a whole number."})
+    data = telemetry.vehicle(dev, minutes)
+    if not can_view_raw(request.user):
+        data["device"]["imei"] = mask_imei(dev.imei)
+    return data
+
+
+def _parameter_payload(dev, key, request):
+    try:
+        hours = max(0.1, min(2160.0, float(request.query_params.get("hours") or 24)))
+    except ValueError:
+        raise ValidationError({"hours": "Must be a number."})
+    if not (key in telemetry.GPS_PARAMS or str(key).isdigit()):
+        raise ValidationError({"key": "Unknown parameter."})
+    return telemetry.parameter_history(dev, key, hours)
 
 
 # ---------------------------------------------------------------------------

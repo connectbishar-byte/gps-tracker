@@ -217,6 +217,9 @@ FLEET = {
     "TERMINAL_POLL_MS": int(env("FLEET_TERMINAL_POLL_MS", "1000")),
     # Commissioning mode: accept any well-formed IMEI and auto-register it (default off)
     "AUTO_REGISTER_UNKNOWN": env_bool("FLEET_AUTO_REGISTER_UNKNOWN", False),
+    # Data retention: default for new vehicles (each vehicle has its own value on its Device page);
+    # also used for traffic that belongs to no vehicle (rejected / unknown IMEIs)
+    "DEFAULT_RETENTION_DAYS": int(env("FLEET_DEFAULT_RETENTION_DAYS", "60")),
 }
 
 LOG_DIR = Path(env("FLEET_LOG_DIR", BASE_DIR / "logs"))

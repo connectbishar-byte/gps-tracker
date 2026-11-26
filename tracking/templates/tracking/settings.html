@@ -56,6 +56,9 @@
       <tr><th>Handshake / read timeout</th><td>{{ FLEET.HANDSHAKE_TIMEOUT }} s / {{ FLEET.READ_TIMEOUT }} s</td></tr>
       <tr><th>Stale / offline after</th><td>{{ FLEET.STALE_AFTER_SECONDS }} s / {{ FLEET.OFFLINE_AFTER_SECONDS }} s</td></tr>
       <tr><th>UI polling</th><td>{{ FLEET.POLL_SECONDS }} s</td></tr>
+      <tr><th>Data retention</th><td>Set per vehicle (default {{ FLEET.DEFAULT_RETENTION_DAYS }} days for new vehicles).
+        Port terminal events {{ FLEET.PORT_LOG_RETENTION_HOURS }} h.<br><span class="small text-muted">Last purge:
+        {% if last_purge %}{{ last_purge.at|date:"Y-m-d H:i" }} · {{ last_purge.summary.records }} records, {{ last_purge.summary.io }} parameter values removed{% else %}not run yet (daily at 03:15){% endif %}</span></td></tr>
     </table><div class="card-footer small text-muted">Values come from environment variables / <code>.env</code>. See README.</div></div>
 
     <div class="card"><div class="card-header">FMC130 Configurator — bench values (from runbook)</div><table class="table table-sm mb-0 small">

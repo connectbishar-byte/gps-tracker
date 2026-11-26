@@ -1,0 +1,19 @@
+[Unit]
+Description=Meltice GPS Tracker - delete data older than each vehicle's retention period
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+User=fleet
+Group=fleet
+WorkingDirectory=/srv/meltice-gps-tracker/app
+EnvironmentFile=/etc/meltice-gps-tracker/fleet.env
+Environment=FLEET_PROCESS=maintenance
+ExecStart=/srv/meltice-gps-tracker/venv/bin/python manage.py purge_data
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/srv/meltice-gps-tracker /var/lib/meltice-gps-tracker /var/log/meltice-gps-tracker

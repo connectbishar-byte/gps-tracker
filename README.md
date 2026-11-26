@@ -129,6 +129,47 @@ python tools/fmc_probe.py gps.melticetech.com 5027
 
 ---
 
+## Vehicle panel — every parameter, graphically
+
+Click a vehicle on the **Live map** (or open its **Device** page) to see:
+
+- a **speedometer**, **temperature** (AVL #72, needs a Dallas probe) and **vehicle battery** (#66) dials, and a **heading compass**
+- tiles for **GSM signal** and operator, **satellites** and HDOP, **backup battery** (#113 / #67) and **altitude**
+- status lights: ignition, movement, GNSS fix, over 80 km/h, DIN/DOUT, jamming, battery unplugged, towing (those the tracker sends)
+- **trip today**, **odometer** and **moving time today**
+- **30-minute trends** for speed, temperature and battery voltage
+- **All parameters**, grouped (position, inputs and outputs, power, sensors, distance, network, events). Click any one to
+  chart its history over 1 hour to 60 days, with min / average / max and a hover read-out.
+
+![Vehicle panel](docs/screenshots/vehicle-panel-dark.png)
+
+The same data is in the REST API: `GET /api/v1/devices/{id}/telemetry/` and
+`GET /api/v1/devices/{id}/parameters/{avl_id or speed|altitude|satellites|angle}/?hours=24`.
+
+### How parameters are stored (SQL Server)
+
+| Table | One row per | Holds |
+|---|---|---|
+| `tracking_avlrecord` | AVL record | time, latitude, longitude, altitude, heading, satellites, speed, priority, event id |
+| `tracking_iovalue` | parameter per record | vehicle, time, AVL id, name, scaled value, display text, unit, raw HEX |
+| `tracking_rawpacket` | TCP frame | the exact bytes received, CRC, ACK |
+
+`tracking_iovalue` is indexed by (vehicle, AVL id, time), so any parameter can be charted or queried directly, e.g.
+`SELECT timestamp_utc, value FROM tracking_iovalue WHERE device_id = 3 AND avl_id = 66 ORDER BY timestamp_utc`.
+
+### Data retention per vehicle
+
+Each vehicle has **Data retention (days)** on its Device page (default 60, set by `FLEET_DEFAULT_RETENTION_DAYS` for
+new vehicles; also in the API as `retention_days`). A daily purge deletes that vehicle's records, parameter values,
+raw packets and closed connections older than its retention, in small batches so the receiver keeps writing.
+
+- Hostinger (native): `fleet-purge.timer` runs `manage.py purge_data` every day at 03:15 server time.
+  Check it with `systemctl list-timers fleet-purge.timer` and `journalctl -u fleet-purge`.
+- Docker: the `maintenance` service runs the purge every 24 hours.
+- By hand: `python manage.py purge_data --dry-run` shows what would be deleted; drop `--dry-run` to delete.
+
+Settings shows the default and when the last purge ran.
+
 ## Port terminal — see everything arriving on the port
 
 Web: **Port terminal** in the left menu (staff and `raw_data` users). Each line is one event:

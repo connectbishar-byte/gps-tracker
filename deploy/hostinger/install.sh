@@ -14,7 +14,7 @@
 #   - creates the SQL Server database + least-privilege login 'fleet_app' (db_owner of that database only)
 #   - creates /etc/meltice-gps-tracker/fleet.env (only if missing) with a random secret key
 #   - runs migrations, collectstatic, creates the admin user
-#   - installs fleet-receiver.service + gunicorn-fleet.service
+#   - installs fleet-receiver.service + gunicorn-fleet.service + fleet-purge.timer (daily data retention)
 #   - installs a NEW Nginx server block for fleet.melticetech.com (backs up /etc/nginx first, runs nginx -t)
 # What it does NOT do (do these consciously, see docs/HOSTINGER_DEPLOYMENT.md):
 #   - enable/reset UFW, change other Nginx sites, request TLS certificates, open the Hostinger panel firewall
@@ -134,8 +134,11 @@ run check
 echo "==> systemd units"
 install -m 644 "$APP/deploy/hostinger/fleet-receiver.service" /etc/systemd/system/fleet-receiver.service
 install -m 644 "$APP/deploy/hostinger/gunicorn-fleet.service" /etc/systemd/system/gunicorn-fleet.service
+install -m 644 "$APP/deploy/hostinger/fleet-purge.service" /etc/systemd/system/fleet-purge.service
+install -m 644 "$APP/deploy/hostinger/fleet-purge.timer" /etc/systemd/system/fleet-purge.timer
 systemctl daemon-reload
 systemctl enable --now gunicorn-fleet fleet-receiver
+systemctl enable --now fleet-purge.timer   # daily purge of data older than each vehicle's retention
 systemctl restart gunicorn-fleet fleet-receiver
 
 echo "==> Nginx server block for $WEB_DOMAIN"

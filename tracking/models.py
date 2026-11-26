@@ -1,5 +1,11 @@
+from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
+
+
+def default_retention_days():
+    return settings.FLEET.get("DEFAULT_RETENTION_DAYS", 60)
 
 
 class Device(models.Model):
@@ -12,6 +18,9 @@ class Device(models.Model):
     group = models.CharField(max_length=60, blank=True, default="Default")
     config_revision = models.CharField(max_length=60, blank=True, help_text="Configurator file / revision currently on the device")
     notes = models.TextField(blank=True)
+    retention_days = models.PositiveIntegerField(
+        "Data retention (days)", default=default_retention_days, validators=[MinValueValidator(1), MaxValueValidator(3650)],
+        help_text="Records, parameters, raw packets and connections older than this are deleted by the daily purge.")
     created_utc = models.DateTimeField(default=timezone.now)
 
     # denormalised status, maintained by the ingest pipeline
@@ -113,7 +122,11 @@ class AVLRecord(models.Model):
 
 
 class IOValue(models.Model):
+    """One row per parameter (AVL I/O element) per record. device and timestamp_utc are copied from the
+    record so a parameter can be charted for a vehicle without a join, and purged by date."""
     record = models.ForeignKey(AVLRecord, on_delete=models.CASCADE, related_name="io")
+    device = models.ForeignKey(Device, null=True, blank=True, on_delete=models.CASCADE, related_name="+", db_index=False)
+    timestamp_utc = models.DateTimeField(null=True, blank=True)
     avl_id = models.IntegerField()
     byte_length = models.SmallIntegerField()
     raw_hex = models.CharField(max_length=2048)
@@ -126,6 +139,8 @@ class IOValue(models.Model):
 
     class Meta:
         ordering = ["avl_id"]
+        indexes = [models.Index(fields=["device", "avl_id", "timestamp_utc"], name="io_device_param_ts"),
+                   models.Index(fields=["device", "timestamp_utc"], name="io_device_ts")]
 
 
 class ReceiverHeartbeat(models.Model):

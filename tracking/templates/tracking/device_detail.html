@@ -10,7 +10,8 @@
   </div>
 </div>
 <div class="row g-3">
-  <div class="col-lg-4">
+  <div class="col-xl-5 col-lg-6"><div class="vp-inline" id="vpanel"></div></div>
+  <div class="col-xl-7 col-lg-6">
     <div class="card mb-3"><div class="card-header">Diagnostics</div><table class="table table-sm mb-0">
       <tr><th>IMEI</th><td>{% if full_imei %}{{ d.imei }}{% else %}{{ d.masked_imei }}{% endif %}</td></tr>
       <tr><th>Model / firmware</th><td>{{ d.model }} / {{ d.firmware|default:"unknown" }}</td></tr>
@@ -21,6 +22,7 @@
       <tr><th>Last valid fix</th><td>{% if d.last_fix_ts %}{{ d.last_fix_ts|date:"Y-m-d H:i:s" }}<br><span class="small">{{ d.last_fix_lat|floatformat:6 }}, {{ d.last_fix_lon|floatformat:6 }} · {{ d.last_fix_sats }} sats</span>{% else %}none{% endif %}</td></tr>
       <tr><th>Ignition / movement</th><td>{{ d.last_ignition|yesno:"On,Off,—" }} / {{ d.last_movement|yesno:"On,Off,—" }}</td></tr>
       <tr><th>GSM signal</th><td>{{ d.last_gsm_signal|default_if_none:"—" }}/5</td></tr>
+      <tr><th>Data retention</th><td>{{ d.retention_days }} days</td></tr>
       <tr><th>External voltage</th><td>{{ d.last_ext_voltage|floatformat:2|default:"—" }} V</td></tr>
       <tr><th>Packets / records / errors</th><td>{{ d.packet_count }} / {{ d.record_count }} / <span class="{% if d.error_count %}text-danger{% endif %}">{{ d.error_count }}</span></td></tr>
       {% if d.last_error %}<tr><th>Last error</th><td class="text-danger small">{{ d.last_error }}</td></tr>{% endif %}
@@ -36,7 +38,7 @@
       </form></div></div>
     {% endif %}
   </div>
-  <div class="col-lg-8">
+  <div class="col-12">
     <div class="card mb-3"><div class="card-header">Recent TCP connections</div><div class="table-responsive"><table class="table table-sm mb-0">
       <thead class="table-light"><tr><th>Opened</th><th>Closed</th><th>Remote</th><th>Source</th><th>Handshake</th><th>Frames</th><th>Close reason</th></tr></thead><tbody>
       {% for c in connections %}<tr><td>{{ c.opened_utc|date:"m-d H:i:s" }}</td><td>{{ c.closed_utc|date:"H:i:s"|default:"open" }}</td><td>{{ c.remote }}</td><td>{{ c.source }}</td><td>{{ c.handshake }}</td><td>{{ c.frames }}</td><td class="small">{{ c.close_reason }}</td></tr>
@@ -49,4 +51,8 @@
     </tbody></table></div>
   </div>
 </div>
+{% endblock %}
+{% block scripts %}
+{% load static %}<script src="{% static 'tracking/vehicle-panel.js' %}"></script>
+<script>VehiclePanel.create(document.getElementById("vpanel")).show({{ d.id }});</script>
 {% endblock %}

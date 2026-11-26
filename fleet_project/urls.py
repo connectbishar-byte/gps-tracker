@@ -29,6 +29,8 @@ urlpatterns = [
     path("api/redoc/", SpectacularRedocView.as_view(url_name="api_schema"), name="api_redoc"),
     path("api/fleet/", views.api_fleet, name="api_fleet"),
     path("api/history/", views.api_history, name="api_history"),
+    path("api/vehicle/<int:pk>/", views.api_vehicle, name="api_vehicle"),
+    path("api/vehicle/<int:pk>/param/<str:key>/", views.api_vehicle_param, name="api_vehicle_param"),
     path("api/receiver/", views.api_receiver, name="api_receiver"),
     path("login/", views.ThrottledLoginView.as_view(), name="login"),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),

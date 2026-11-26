@@ -17,6 +17,7 @@
   </section>
   <div class="position-relative flex-grow-1 d-flex">
     <div id="map"></div>
+    <aside class="vp-drawer" id="vpanel" hidden aria-label="Vehicle details"></aside>
     <div class="map-tools btn-group-vertical shadow-sm" style="top: 100px">
       <button class="btn btn-light btn-sm" id="fitAll" title="Fit all vehicles"><i class="bi bi-arrows-fullscreen"></i></button>
       <button class="btn btn-light btn-sm" id="follow" title="Follow selected vehicle"><i class="bi bi-crosshair"></i></button>
@@ -25,32 +26,13 @@
 </div>
 {% endblock %}
 {% block scripts %}
+{% load static %}<script src="{% static 'tracking/vehicle-panel.js' %}"></script>
 <script>
 (function () {
   const map = L.map("map").setView([24.45, 54.6], 10);
   Fleet.baseLayers(map);
   const markers = {};
   let devices = [], filter = "all", selected = null, follow = false, fitted = false;
-
-  function popup(d) {
-    const f = d.fix;
-    const yn = v => v == null ? "—" : (v ? "On" : "Off");
-    return `<div class="pop-title">${Fleet.esc(d.name)} <span class="badge badge-state bg-${d.state}">${Fleet.stateLabel[d.state]}</span></div>
-      <div class="pop-grid">
-        <span>Plate</span><span>${Fleet.esc(d.plate || "—")}</span>
-        <span>Fix time</span><span>${Fleet.fmt(f.ts)}</span>
-        <span>Fix age</span><span>${Fleet.ago(f.ts)}${f.age_s > 900 ? ' <b class="text-danger">(old)</b>' : ""}</span>
-        <span>Position</span><span>${f.lat.toFixed(6)}, ${f.lon.toFixed(6)}</span>
-        <span>Speed</span><span>${f.speed} km/h · ${f.angle}°</span>
-        <span>Satellites</span><span>${f.sats}</span>
-        <span>Ignition</span><span>${yn(d.ignition)}</span>
-        <span>GSM / Ext V</span><span>${d.gsm ?? "—"}/5 · ${d.ext_v != null ? d.ext_v.toFixed(2) + " V" : "—"}</span>
-        <span>Last packet</span><span>${Fleet.ago(d.last_packet)}</span>
-      </div>
-      <div class="mt-2 d-flex gap-2"><a class="btn btn-sm btn-outline-primary" href="/history/?device=${d.id}">History</a>
-      <a class="btn btn-sm btn-outline-secondary" href="/io/?device=${d.id}">I/O</a>
-      <a class="btn btn-sm btn-outline-secondary" href="/devices/${d.id}/">Device</a></div>`;
-  }
 
   function render() {
     const q = document.getElementById("vq").value.toLowerCase();
@@ -94,10 +76,10 @@
       } else {
         markers[d.id].setLatLng(ll).setIcon(Fleet.vehicleIcon(d.state, d.fix.angle));
       }
-      markers[d.id].bindPopup(popup(d));
     }
     for (const id in markers) if (!seen.has(+id)) { map.removeLayer(markers[id]); delete markers[id]; }
     if (!fitted && seen.size) { fitAll(); fitted = true; }
+    if (want && selected == null && devices.some(d => d.id === want)) select(want);
     if (follow && selected && markers[selected]) map.panTo(markers[selected].getLatLng());
     document.getElementById("upd").textContent = Fleet.fmt(data.server_time).slice(11);
     render();
@@ -106,12 +88,21 @@
     const pts = Object.values(markers).map(m => m.getLatLng());
     if (pts.length) map.fitBounds(L.latLngBounds(pts), {padding: [40, 40], maxZoom: 15});
   }
+  const panel = VehiclePanel.create(document.getElementById("vpanel"), {onClose: () => {
+    panel.hide(); selected = null; render(); history.replaceState(null, "", location.pathname);
+  }});
   function select(id) {
     selected = id;
     const m = markers[id];
-    if (m) { map.setView(m.getLatLng(), Math.max(map.getZoom(), 15)); m.openPopup(); }
+    if (m) {
+      map.setView(m.getLatLng(), Math.max(map.getZoom(), 15), {animate: false});
+      if (innerWidth > 900) map.panBy([200, 0], {animate: false});   // keep the vehicle clear of the panel
+    }
+    panel.show(id);
+    history.replaceState(null, "", `?vehicle=${id}`);
     render();
   }
+  const want = +new URLSearchParams(location.search).get("vehicle");
   document.getElementById("vtabs").addEventListener("click", e => {
     const b = e.target.closest("button"); if (!b) return;
     document.querySelectorAll("#vtabs button").forEach(x => x.classList.toggle("active", x === b));
