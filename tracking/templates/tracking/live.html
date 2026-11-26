@@ -26,7 +26,7 @@
 </div>
 {% endblock %}
 {% block scripts %}
-{% load static %}<script src="{% static 'tracking/vehicle-panel.js' %}"></script>
+{% load static %}<script src="{% static 'tracking/vehicle-panel.js' %}?v={{ ASSET_V }}"></script>
 <script>
 (function () {
   const map = L.map("map").setView([24.45, 54.6], 10);

@@ -16,7 +16,8 @@
     window.addEventListener("message", e => {
       if (!pending || e.source !== pending.win || !e.data || e.data.mgt !== "gmaps") return;
       clearTimeout(pending.timer);
-      show($("googleResult"), e.data.ok, e.data.text);
+      const why = e.data.code ? `Google says ${e.data.code}: ${Fleet.GOOGLE_ERRORS[e.data.code] || "see Google's Maps error list."}` : e.data.text;
+      show($("googleResult"), e.data.ok, why);
       if (!e.data.ok) $("googleFrameWrap").hidden = true;
       pending = null;
     });
@@ -29,8 +30,11 @@
       const f = document.createElement("iframe");
       f.style.cssText = "width:100%;height:180px;border:1px solid var(--line);border-radius:8px";
       f.srcdoc = `<!doctype html><html><body style="margin:0"><div id="m" style="height:180px"></div><script>
-        const say = (ok, text) => parent.postMessage({mgt: "gmaps", ok, text}, "*");
-        window.gm_authFailure = () => say(false, "Google rejected the key. Check that the Maps JavaScript API is enabled, billing is on, and this site is allowed under the key's website restrictions.");
+        const say = (ok, text, code) => parent.postMessage({mgt: "gmaps", ok, text, code}, "*");
+        let code = "";
+        const err = console.error.bind(console);
+        console.error = (...a) => { const m = String(a[0] || "").match(/\\b([A-Z][A-Za-z]+MapError)\\b/); if (m) code = m[1]; err(...a); };
+        window.gm_authFailure = () => setTimeout(() => say(false, "Google rejected the key. Check that the Maps JavaScript API is enabled, billing is on, and this site is allowed under the key's website restrictions.", code), 300);
         window.ready = () => {
           const map = new google.maps.Map(document.getElementById("m"), {center: {lat: 24.45, lng: 54.6}, zoom: 10, disableDefaultUI: true});
           google.maps.event.addListenerOnce(map, "tilesloaded", () => setTimeout(() => say(true, "Key works. Google Maps loaded."), 1500));

@@ -108,3 +108,14 @@ class IntegrationTests(TestCase):
         self.assertIn("401", r["detail"])
         r = self.c.post("/settings/integrations/test-openai/", {}).json()
         self.assertFalse(r["ok"])
+
+
+class AssetVersionTests(TestCase):
+    def test_own_static_files_carry_a_version(self):
+        from tracking.views import ASSET_V
+        User.objects.create_user("v2", password="pw-12345678")
+        c = Client()
+        c.login(username="v2", password="pw-12345678")
+        page = c.get("/live/").content.decode()
+        self.assertIn(f"tracking/app.js?v={ASSET_V}", page)
+        self.assertIn(f"tracking/vehicle-panel.js?v={ASSET_V}", page)
