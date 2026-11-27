@@ -12,7 +12,7 @@
     {% csrf_token %}
     <div class="row g-4">
       {% for f in integrations %}{% if f.name == "google_maps_api_key" %}
-      <div class="col-lg-6">
+      <div class="col-xl-4 col-lg-6">
         <h6 class="mb-1"><i class="bi bi-map me-1"></i> Google Maps</h6>
         <p class="small text-muted mb-2">Adds Google Road, Satellite and Hybrid maps to the dashboard, live map and history.
           Without a key the maps use OpenStreetMap.</p>
@@ -24,9 +24,21 @@
         <div id="googleFrameWrap" class="mt-2" hidden></div>
       </div>
       {% endif %}{% endfor %}
-      <div class="col-lg-6">
+      <div class="col-xl-4 col-lg-6">
+        <h6 class="mb-1"><i class="bi bi-robot me-1"></i> Anthropic (Claude)</h6>
+        <p class="small text-muted mb-2">Lets the AI assistant answer any question with Claude. Leave the model empty to use
+          <code>claude-opus-5-5</code>.</p>
+        {% for f in integrations %}{% if f.name == "anthropic_api_key" %}{% include "tracking/_integration_field.html" with f=f placeholder="sk-ant-…" %}{% endif %}{% endfor %}
+        {% for f in integrations %}{% if f.name == "anthropic_model" %}{% include "tracking/_integration_field.html" with f=f placeholder="claude-opus-5-5" list="anthropicModels" %}{% endif %}{% endfor %}
+        <datalist id="anthropicModels"><option value="claude-opus-5-5"><option value="claude-sonnet-5-5"><option value="claude-haiku-5-5"></datalist>
+        <div class="d-flex gap-2 align-items-center mt-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary text-nowrap flex-shrink-0" id="testAnthropic"><i class="bi bi-play-circle"></i> Test key</button>
+          <span class="small" id="anthropicResult"></span>
+        </div>
+      </div>
+      <div class="col-xl-4 col-lg-6">
         <h6 class="mb-1"><i class="bi bi-stars me-1"></i> OpenAI</h6>
-        <p class="small text-muted mb-2">Saved for the upcoming AI features (trip summaries, alerts in plain language). Nothing calls OpenAI yet.</p>
+        <p class="small text-muted mb-2">Optional alternative for the AI assistant (choose it under AI assistant → provider).</p>
         {% for f in integrations %}{% if f.name == "openai_api_key" %}{% include "tracking/_integration_field.html" with f=f placeholder="sk-…" %}{% endif %}{% endfor %}
         {% for f in integrations %}{% if f.name == "openai_model" %}{% include "tracking/_integration_field.html" with f=f placeholder="Run the test to list your models" list="openaiModels" %}{% endif %}{% endfor %}
         <datalist id="openaiModels"></datalist>
@@ -43,6 +55,53 @@
   </form>
 </div>
 {% endif %}
+{% if assistant %}{% with a=assistant.cfg %}
+<div class="card mb-3" id="assistant">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-robot me-1"></i> AI assistant</span>
+    <span class="small {% if assistant.ai.ready %}text-success{% else %}text-muted{% endif %}">{% if a.enabled %}{{ assistant.ai.label }}{% else %}Turned off{% endif %}</span>
+  </div>
+  <form method="post" action="{% url 'settings_assistant' %}" class="card-body">
+    {% csrf_token %}
+    <p class="small text-muted">The robot on every page. It explains the page you're on and checks the receiver, vehicles and
+      recent traffic for problems without any key. With an AI provider it also answers free-form questions using a live
+      snapshot of the fleet (vehicle names, states and health findings are sent to the provider; never keys or full IMEIs).</p>
+    <div class="row g-3">
+      <div class="col-md-4">
+        <div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" role="switch" id="as_enabled" name="enabled" {% if a.enabled %}checked{% endif %}>
+          <label class="form-check-label" for="as_enabled">Show the assistant</label></div>
+        <div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" role="switch" id="as_proactive" name="proactive" {% if a.proactive %}checked{% endif %}>
+          <label class="form-check-label" for="as_proactive">Speak up when it finds a problem</label></div>
+        <label class="form-label small mb-1" for="as_name">Name</label>
+        <input class="form-control form-control-sm mb-2" id="as_name" name="name" value="{{ a.name }}" maxlength="{{ assistant.limits.name }}" required>
+        <label class="form-label small mb-1" for="as_position">Position on screen</label>
+        <select class="form-select form-select-sm mb-2" id="as_position" name="position">{% for k, v in assistant.positions.items %}<option value="{{ k }}" {% if k == a.position %}selected{% endif %}>{{ v }}</option>{% endfor %}</select>
+        <label class="form-label small mb-1" for="as_audience">Who can use it</label>
+        <select class="form-select form-select-sm" id="as_audience" name="audience">{% for k, v in assistant.audiences.items %}<option value="{{ k }}" {% if k == a.audience %}selected{% endif %}>{{ v }}</option>{% endfor %}</select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label small mb-1" for="as_provider">AI provider</label>
+        <select class="form-select form-select-sm mb-1" id="as_provider" name="provider">{% for k, v in assistant.providers.items %}<option value="{{ k }}" {% if k == a.provider %}selected{% endif %}>{{ v }}</option>{% endfor %}</select>
+        <div class="form-text small mb-2">Keys and models are set under Integrations above.</div>
+        <label class="form-label small mb-1" for="as_detail">Answer style</label>
+        <select class="form-select form-select-sm mb-2" id="as_detail" name="detail">{% for k, v in assistant.details.items %}<option value="{{ k }}" {% if k == a.detail %}selected{% endif %}>{{ v }}</option>{% endfor %}</select>
+        <label class="form-label small mb-1" for="as_greeting">Greeting</label>
+        <textarea class="form-control form-control-sm" id="as_greeting" name="greeting" rows="3" maxlength="{{ assistant.limits.greeting }}">{{ a.greeting }}</textarea>
+        <div class="form-text small">{user} and {name} are replaced.</div>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label small mb-1" for="as_instructions">Extra instructions for the AI</label>
+        <textarea class="form-control form-control-sm" id="as_instructions" name="instructions" rows="7" maxlength="{{ assistant.limits.instructions }}"
+          placeholder="e.g. Answer in English and Arabic. Our support number is … Vehicles in group Baniyas belong to the night shift.">{{ a.instructions }}</textarea>
+        <div class="form-text small">Added to every AI question. Not used by the built-in guide.</div>
+      </div>
+    </div>
+    <div class="d-flex justify-content-end mt-3 pt-3 border-top">
+      <button class="btn btn-primary btn-sm"><i class="bi bi-check2"></i> Save assistant settings</button>
+    </div>
+  </form>
+</div>
+{% endwith %}{% endif %}
 <div class="row g-3">
   <div class="col-lg-6">
     <div class="card mb-3"><div class="card-header">Environment</div><table class="table table-sm mb-0">

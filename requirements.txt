@@ -9,3 +9,5 @@ whitenoise>=6.7
 mssql-django>=1.6
 pyodbc>=5.1
 cryptography>=42
+# AI assistant (Claude). Called only when an Anthropic key is set on Settings → Integrations.
+anthropic>=2.0,<3
