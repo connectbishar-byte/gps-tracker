@@ -165,7 +165,7 @@ class WhatsAppTests(TestCase):
         self.assertIn("/1112223334/messages", seen["url"])
         self.assertEqual(seen["body"]["to"], "971501234567")
         self.assertEqual(seen["body"]["template"]["name"], "gps_alert")
-        self.assertEqual(seen["body"]["template"]["components"][0]["parameters"][0]["text"], "Jeep entered Office at 10:00")
+        self.assertEqual(seen["body"]["template"]["components"][1]["parameters"][1]["text"], "Jeep entered Office at 10:00")
 
     def test_callmebot_error_page(self):
         integrations.save("whatsapp_provider", "callmebot")

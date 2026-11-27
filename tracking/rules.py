@@ -119,7 +119,7 @@ def deliver(event_id: int) -> None:
     for ch in channels:
         if ch == "whatsapp":
             from . import whatsapp
-            res = whatsapp.send(ev.text, rule.recipients if rule else None)
+            res = whatsapp.send(ev.text, rule.recipients if rule else None, subject=ev.rule_name)
             ok_any |= bool(res.get("sent"))
             fail_any |= not res.get("ok")
             parts.append("WhatsApp: " + res["detail"])
@@ -158,7 +158,7 @@ def send_test(rule: AlertRule) -> dict:
                               zone=rule.geofence.name if rule.geofence else "Office", what="harsh braking")
     if "whatsapp" not in (rule.channels or []):
         return {"ok": False, "detail": "Tick WhatsApp on the rule first.", "text": text}
-    return whatsapp.send(text, rule.recipients or None) | {"text": text}
+    return whatsapp.send(text, rule.recipients or None, subject=rule.name) | {"text": text}
 
 
 # ---------------------------------------------------------------------------

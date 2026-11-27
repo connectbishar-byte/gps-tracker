@@ -138,9 +138,18 @@ def settings_context() -> dict:
     rows = {r["name"]: r for r in integrations.status() if r["name"] in integrations.WHATSAPP_FIELDS}
     for name, r in rows.items():
         r["value"] = "" if r["secret"] else integrations.get(name)
+    import json
     from .models import WhatsAppMessage
+    msgs = list(WhatsAppMessage.objects.all()[:40])
+    for m in msgs:
+        m.payload_json = json.dumps(m.payload, indent=2, ensure_ascii=False)
+        m.response_json = json.dumps(m.response, indent=2, ensure_ascii=False) if m.response else ""
+        m.meta_json = " · ".join(f"{k}: {v}" for k, v in (m.meta or {}).items())
+        m.template = ((m.payload or {}).get("template") or {}).get("name", "") if isinstance(m.payload, dict) else ""
     return {"wa_fields": rows, "wa_providers": whatsapp.PROVIDERS, "wa_status": whatsapp.status(),
-            "wa_verify_default": whatsapp.DEFAULT_VERIFY_TOKEN, "wa_messages": WhatsAppMessage.objects.all()[:25]}
+            "wa_verify_default": whatsapp.DEFAULT_VERIFY_TOKEN, "wa_messages": msgs,
+            "wa_modes": whatsapp.META_MODES, "wa_mode": whatsapp.config()["meta_mode"],
+            "wa_text_template": whatsapp.DEFAULT_TEXT_TEMPLATE, "wa_doc_template": whatsapp.DEFAULT_DOC_TEMPLATE}
 
 
 @login_required

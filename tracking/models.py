@@ -350,6 +350,9 @@ class WhatsAppMessage(models.Model):
     status_code = models.IntegerField(null=True, blank=True)
     detail = models.CharField(max_length=500, blank=True)
     payload = models.JSONField(default=dict, blank=True)
+    response = models.JSONField(default=dict, blank=True, help_text="Meta's answer")
+    request_id = models.CharField(max_length=40, blank=True)
+    meta = models.JSONField(default=dict, blank=True, help_text="URL and masked Authorization header")
 
     class Meta:
         ordering = ["-created_utc", "-id"]

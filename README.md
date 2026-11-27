@@ -261,19 +261,29 @@ ignition on / off), *which vehicles* (none ticked = all), *who* (numbers, blank 
 `tracking/rules.py → deliver()`). Each rule has a cooldown, a message with placeholders (`{vehicle} {speed} {limit}
 {zone} {time} {duration} {map}` …) and a **Test** button. The **Alert log** tab shows every alert and its delivery.
 
-**Meta WhatsApp Cloud API** (Settings → WhatsApp alerts → Meta): Access token, Phone number ID, Webhook verify token
-(default `meltice_whatsapp_2026`), optional App secret and Graph API version. Two functions, each with a test button
-and a REST endpoint (admin token or session):
+**Meta WhatsApp Cloud API** (Settings → WhatsApp alerts → Meta, Graph v22.0): Access token, Phone number ID, Webhook
+verify token (default `meltice_whatsapp_2026`), optional App secret, and the approved templates (language `en_US`):
+
+- **prod_report** (text): header `head_name` = subject / rule name, body `custname` = customer name, `textname` = message
+  (newlines collapsed, max 750 characters). Alerts use it by default, so they reach people who never wrote to the
+  business number. "Send alerts as → Plain text" switches alerts to free text (only works within 24 h of the person
+  writing to you).
+- **certificate_ready_docs** (PDF): document header (link + `{name}_Certificate.pdf`), body `{{1}}` = name, `{{2}}` = message.
+
+Test buttons for template / plain text / image / PDF template / plain PDF, and the same on the REST API (admin token or session):
 
 ```
-POST /api/v1/whatsapp/send-text/   {"to_number": "971507864838", "subject": "Meltice Technology",
-                                    "customer_name": "Customer", "text_name": "Your daily report is ready."}
-POST /api/v1/whatsapp/send-media/  {"to_number": "971507864838", "customer_name": "Customer", "file_type": "image",
-                                    "file_url": "https://yourdomain.com/certificate.jpg", "message": "Your certificate is ready."}
+POST /api/v1/whatsapp/send-text/      {"to_number": "971507864838", "subject": "Meltice Technology",
+                                       "customer_name": "Customer", "text_name": "Your daily report is ready."}
+                                       → prod_report (or plain text if Settings say so, or "mode": "text")
+POST /api/v1/whatsapp/send-template/  same, always the template      POST /api/v1/whatsapp/send-message/  always plain text
+POST /api/v1/whatsapp/send-media/     {"to_number": "...", "customer_name": "Ali", "file_type": "pdf",
+                                       "file_url": "https://yourdomain.com/certificate.pdf", "message": "Your certificate is ready."}
+                                       → pdf: certificate_ready_docs ("template": false = plain document); image: image + caption
 ```
-(`/api/v1/whatsapp/send-certificate/` is the same as send-media.) Webhook for delivery statuses and replies:
-`https://<site>/whatsapp/webhook/` with the verify token above, field **messages**. Every message and status is listed
-under the WhatsApp card.
+(`send-certificate/` = send-media, `send-image-message/` = always an image.) Webhook for delivery statuses and replies:
+`https://<site>/whatsapp/webhook/` with the verify token above, field **messages**. The log under the WhatsApp card
+shows every send (payload, Meta's answer, request id, URL and masked token) and every raw webhook event.
 
 ## Driver score sheet
 
