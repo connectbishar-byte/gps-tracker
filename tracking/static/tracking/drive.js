@@ -110,7 +110,7 @@
   }
 
   window.DriveTrip = {haversine, bearing, newTrip, addFix, score, summary};
-  if (typeof document === "undefined" || !document.getElementById("dmap")) return;
+  if (typeof document === "undefined" || !document.getElementById("dmap") || window.__mgtNested) return;
 
   // ---------------------------------------------------------------- page
   const $ = id => document.getElementById(id);
@@ -692,6 +692,7 @@
     if (popOpen === b.dataset.pop) closePop(); else openPop(b.dataset.pop);
   });
   $("dpopclose").onclick = closePop;
+  window.__mgtCarView = {closePop};   // lets a car view link inside a pop-up close it instead of nesting
   $("dpop").addEventListener("click", e => {
     if (e.target === $("dpop")) closePop();
     const l = e.target.closest("[data-frame]");
