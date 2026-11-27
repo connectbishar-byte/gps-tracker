@@ -23,18 +23,28 @@
       if (!r.ok) throw new Error(r.status + " " + r.statusText);
       return r.json();
     },
+    /* Map marker. A moving vehicle gets a navigation arrow turned to its compass heading
+       (0 = north, clockwise), so the arrow's tip points where the vehicle is going. Pass the
+       server's "course" (worked out from the last fixes) first and the tracker's angle as fallback. */
     vehicleIcon(state, angle) {
       const c = F.stateColor[state] || "#6b7280";
-      const rot = state === "moving" ? `style="transform: rotate(${angle || 0}deg)"` : "";
-      const glyph = state === "moving" ? "bi-arrow-up" : (state === "nosignal" ? "bi-wifi-off" : "bi-truck");
+      const deg = Math.round(((+angle || 0) % 360 + 360) % 360);
+      let inner;
+      if (state === "moving") {
+        inner = `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 2 L20 21 L12 16.5 L4 21 Z" fill="#fff" transform="rotate(${deg} 12 12)"/></svg>`;
+      } else if (state === "nosignal") inner = '<i class="bi bi-wifi-off"></i>';
+      else if (state === "idling") inner = '<i class="bi bi-pause-fill"></i>';
+      else inner = '<b style="font-size:13px">P</b>';
+      const title = state === "moving" ? ` title="Heading ${deg}°"` : "";
       return L.divIcon({className: "", iconSize: [30, 30], iconAnchor: [15, 15], popupAnchor: [0, -14],
-        html: `<div class="veh-icon" style="width:30px;height:30px;background:${c}"><i class="bi ${glyph}" ${rot}></i></div>`});
+        html: `<div class="veh-icon" style="width:30px;height:30px;background:${c}"${title}>${inner}</div>`});
     },
+    heading(fix) { return fix ? (fix.course ?? fix.angle) : 0; },
     /* Base maps. With a Google Maps key (Settings → Integrations) Google Road / Satellite / Hybrid / Terrain
        come first; the free maps below need no key and are always there. The choice is remembered.
        "dark: true" maps are already dark (or photos), so the dark theme doesn't re-tint them. */
     FREE_MAPS: [
-      ["OpenStreetMap", "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      ["Road map (OpenStreetMap)", "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
         {maxZoom: 19, attribution: "&copy; OpenStreetMap contributors"}],
       ["OSM Humanitarian", "https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png",
         {maxZoom: 19, attribution: "&copy; OpenStreetMap contributors, tiles HOT / OSM France"}],
@@ -46,6 +56,11 @@
         {maxZoom: 20, subdomains: "abcd", attribution: "&copy; OpenStreetMap contributors &copy; CARTO", dark: true}],
       ["Esri Satellite", "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
         {maxZoom: 19, attribution: "Imagery &copy; Esri", dark: true}],
+      ["Satellite + roads (Esri)", [
+        ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {maxZoom: 19, attribution: "Imagery &copy; Esri"}],
+        ["https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}", {maxZoom: 19}],
+        ["https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", {maxZoom: 19}],
+      ], {dark: true}],
       ["Esri Streets", "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
         {maxZoom: 19, attribution: "&copy; Esri"}],
       ["Esri Topographic", "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
@@ -68,12 +83,13 @@
         console.warn("[maps] a Google key is set but the Google layer plugin did not load; showing free maps only");
       }
       for (const [n, url, o] of F.FREE_MAPS) {
-        layers[n] = L.tileLayer(url, o);
+        layers[n] = Array.isArray(url) ? L.layerGroup(url.map(([u, lo]) => L.tileLayer(u, lo))) : L.tileLayer(url, o);
         if (o.dark) dark.add(n);
       }
       let saved = null;
       try { saved = localStorage.getItem("mgt-map"); } catch (e) { /* private mode */ }
-      const name = layers[saved] ? saved : Object.keys(layers)[0];
+      // Default is a road map: Google Road when the key works, otherwise OpenStreetMap.
+      const name = layers[saved] ? saved : (google ? "Google Road" : F.ROAD);
       const mark = n => map.getContainer().classList.toggle("map-imagery", dark.has(n));
       layers[name].addTo(map);
       mark(name);
@@ -82,9 +98,65 @@
         try { localStorage.setItem("mgt-map", e.name); } catch (err) { /* private mode */ }
       });
       const control = opts.control === false ? null : L.control.layers(layers, {}, {position: "topright"}).addTo(map);
-      F._maps.push({map, layers, control, mark});
+      const entry = {map, layers, control, mark};
+      F._maps.push(entry);
+      if (opts.quick !== false) F._quickControls(entry);
       if (F._googleFailed) F._dropGoogle();
       return layers;
+    },
+    ROAD: "Road map (OpenStreetMap)",
+    SAT: "Satellite + roads (Esri)",
+    // Switch a map to another base layer by name (fires baselayerchange so the choice is remembered).
+    setBase(m, name) {
+      if (!m.layers[name]) return;
+      for (const [n, l] of Object.entries(m.layers)) if (n !== name && m.map.hasLayer(l)) m.map.removeLayer(l);
+      if (!m.map.hasLayer(m.layers[name])) m.layers[name].addTo(m.map);
+      m.map.fire("baselayerchange", {name, layer: m.layers[name]});
+    },
+    // Road / Satellite one-click switch and a Locate me button, under the zoom buttons.
+    _quickControls(m) {
+      const Quick = L.Control.extend({
+        options: {position: "topleft"},
+        onAdd() {
+          const bar = L.DomUtil.create("div", "leaflet-bar map-quick");
+          const btn = (icon, title, fn) => {
+            const a = L.DomUtil.create("a", "", bar);
+            a.href = "#"; a.title = title; a.setAttribute("role", "button"); a.setAttribute("aria-label", title);
+            a.innerHTML = `<i class="bi ${icon}"></i>`;
+            L.DomEvent.on(a, "click", e => { L.DomEvent.stop(e); fn(a); });
+            return a;
+          };
+          btn("bi-signpost-split", "Road map", () => F.setBase(m, m.layers["Google Road"] ? "Google Road" : F.ROAD));
+          btn("bi-globe-americas", "Satellite with roads", () => F.setBase(m, m.layers["Google Hybrid"] ? "Google Hybrid" : F.SAT));
+          btn("bi-crosshair", "Locate me", a => F.locateMe(m.map, a));
+          L.DomEvent.disableClickPropagation(bar);
+          return bar;
+        },
+      });
+      new Quick().addTo(m.map);
+    },
+    // Show where this browser is (phone GPS or computer Wi-Fi location) and zoom there.
+    locateMe(map, btn) {
+      const fail = msg => { if (btn) btn.classList.remove("busy"); F.toast(msg); };
+      if (!window.isSecureContext) return fail("Locate me needs the site opened over https://.");
+      if (!navigator.geolocation) return fail("This browser can't share its location.");
+      if (btn) btn.classList.add("busy");
+      navigator.geolocation.getCurrentPosition(pos => {
+        if (btn) btn.classList.remove("busy");
+        const ll = [pos.coords.latitude, pos.coords.longitude], acc = pos.coords.accuracy || 0;
+        if (map._meLayer) map.removeLayer(map._meLayer);
+        map._meLayer = L.layerGroup([
+          L.circle(ll, {radius: acc, color: "#2563eb", weight: 1, fillOpacity: .12, interactive: false}),
+          L.circleMarker(ll, {radius: 8, color: "#fff", weight: 3, fillColor: "#2563eb", fillOpacity: 1})
+            .bindTooltip(`You are here (± ${Math.round(acc)} m)`),
+        ]).addTo(map);
+        map.setView(ll, Math.max(map.getZoom(), acc > 1000 ? 13 : 16));
+      }, err => {
+        const why = {1: "Location permission was refused. Allow location for this site in the browser's address bar (site settings), then try again.",
+          2: "The browser couldn't work out your location. Turn on location services (and GPS on a phone) and try again.",
+          3: "Finding your location took too long. Try again outdoors or with Wi-Fi on."}[err.code];
+        fail(why || "Couldn't get your location: " + err.message);
+      }, {enableHighAccuracy: true, timeout: 15000, maximumAge: 10000});
     },
     _maps: [],
     _googleFailed: false,
@@ -138,7 +210,7 @@
           if (m.control) m.control.removeLayer(layer);
           delete m.layers[n];
         }
-        if (wasGoogle) { m.layers["OpenStreetMap"].addTo(m.map); m.mark("OpenStreetMap"); }
+        if (wasGoogle) { m.layers[F.ROAD].addTo(m.map); m.mark(F.ROAD); }
       }
       if (first && message) { console.warn("[maps] " + message); F.toast(message, sticky); }
     },
