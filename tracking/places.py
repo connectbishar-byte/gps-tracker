@@ -133,7 +133,7 @@ class SavedPlaceViewSet(viewsets.ModelViewSet):
 
 def default_name(kind: str, address: str = "") -> str:
     now = timezone.localtime().strftime("%d %b %Y %H:%M")
-    label = {"trip": "Drive stop", "pin": "Pinned spot", "import": "Imported place"}.get(kind, "Place")
+    label = {"trip": "Trip", "pin": "Pinned spot", "import": "Imported place"}.get(kind, "Place")
     short = address.split(",")[0].strip() if address else ""
     return f"{short} · {now}" if short else f"{label} · {now}"
 

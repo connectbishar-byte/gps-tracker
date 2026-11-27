@@ -23,7 +23,7 @@
 <link rel="stylesheet" href="{% static 'tracking/app.css' %}?v={{ ASSET_V }}">
 {% block head %}{% endblock %}
 </head>
-<body class="{% block bodyclass %}{% endblock %}">
+<body class="{% block bodyclass %}{% endblock %}{% if request.GET.embed %} embed{% endif %}">
 <aside class="rail">
   <a class="rail-brand" href="{% url 'dashboard' %}" title="{{ FLEET.SITE_NAME }}"><i class="bi bi-geo-alt-fill"></i></a>
   <nav>
