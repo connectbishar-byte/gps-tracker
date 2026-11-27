@@ -22,7 +22,7 @@ from django.views.decorators.http import require_POST
 
 import json
 
-from . import assistant, codec, integrations, io_dictionary
+from . import assistant, codec, driverscore, integrations, io_dictionary
 from .models import AVLRecord, Connection, Device, RawPacket, ReceiverHeartbeat, TestRun, mask_imei
 
 
@@ -438,6 +438,7 @@ def settings_page(request):
         "integrations": integrations.status() if request.user.is_staff else None,
         "assistant": _assistant_settings() if request.user.is_staff else None,
         "last_purge": _last_purge(),
+        **(driverscore.settings_context() if request.user.is_staff else {}),
     })
 
 

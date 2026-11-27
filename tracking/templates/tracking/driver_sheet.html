@@ -1,0 +1,94 @@
+{% extends "tracking/base.html" %}
+{% load static fleet_extras %}
+{% block title %}Driver score · {{ s.title }} · {{ FLEET.SITE_NAME }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="{% static 'tracking/drivers.css' %}?v={{ ASSET_V }}">{% endblock %}
+{% block content %}{% with t=s.total r=s.result %}
+<div class="ds-print-head mb-2"><strong>{{ FLEET.SITE_NAME }}</strong> · Driver score sheet · printed {% now "d M Y H:i" %}</div>
+<div class="d-flex flex-wrap gap-3 align-items-end justify-content-between mb-3">
+  <div>
+    <a class="small no-print" href="{% url 'drivers' %}?{{ qs }}"><i class="bi bi-arrow-left"></i> All driver scores</a>
+    <h5 class="mb-1 mt-1"><i class="bi {% if s.kind == 'vehicle' %}bi-truck{% else %}bi-phone{% endif %}"></i> {{ s.title }}</h5>
+    <div class="small text-body-secondary">{% if s.kind == 'vehicle' %}Vehicle tracker{% else %}Car view driver{% endif %} · {{ d_from|date:"d M Y" }} to {{ d_to|date:"d M Y" }}
+      {% if s.notes.drivers %} · iButton driver ID {{ s.notes.drivers|join:", " }}{% endif %}</div>
+  </div>
+  <div class="d-flex flex-wrap gap-2 align-items-center no-print">
+    <select class="form-select form-select-sm" style="max-width: 16rem" aria-label="Another driver or vehicle"
+            onchange="if (this.value) location.href = this.value + '?{{ qs }}'">
+      <option value="">Switch to…</option>
+      {% if vehicles %}<optgroup label="Vehicles">{% for v in vehicles %}<option value="{% url 'driver_sheet' 'vehicle' v.pk %}" {% if s.kind == 'vehicle' and v.pk == s.subject.pk %}selected{% endif %}>{{ v.name }}</option>{% endfor %}</optgroup>{% endif %}
+      {% if drivers %}<optgroup label="Car view drivers">{% for u in drivers %}<option value="{% url 'driver_sheet' 'user' u.pk %}" {% if s.kind == 'user' and u.pk == s.subject.pk %}selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>{% endfor %}</optgroup>{% endif %}
+    </select>
+    {% include "tracking/_ds_export.html" %}
+  </div>
+</div>
+<div class="card mb-3 no-print"><div class="card-body py-2">{% include "tracking/_ds_range.html" %}</div></div>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-3">
+    <div class="ds-kpi text-center d-flex flex-column justify-content-center">
+      <div class="l mb-1">Overall driver score</div>
+      <div>{% if r.score is not None %}<span class="ds-score big {{ r.rating }}">{{ r.score }}</span>{% else %}<span class="ds-score big">—</span>{% endif %}</div>
+      <div class="mt-1 ds-rating {{ r.rating }} fs-5">{{ r.rating_label }}</div>
+      <div class="l">out of 100 · Good ≥ {{ s.cfg.good_min }}, Fair ≥ {{ s.cfg.fair_min }}</div>
+    </div>
+  </div>
+  <div class="col-lg-9"><div class="row g-2">
+    <div class="col-6 col-md-3"><div class="ds-kpi"><div class="l">Trips</div><div class="v">{{ t.trips }}</div></div></div>
+    <div class="col-6 col-md-3"><div class="ds-kpi"><div class="l">Distance</div><div class="v">{{ t.km|floatformat:1 }} <small>km</small></div></div></div>
+    <div class="col-6 col-md-3"><div class="ds-kpi"><div class="l">Driving time</div><div class="v">{{ t.moving_s|dur }}</div></div></div>
+    <div class="col-6 col-md-3"><div class="ds-kpi"><div class="l">{% if s.kind == 'vehicle' %}Engine on{% else %}Trip time{% endif %}</div><div class="v">{{ t.duration_s|dur }}</div></div></div>
+    <div class="col-6 col-md-3"><div class="ds-kpi"><div class="l">Max speed</div><div class="v">{{ t.max_kmh|floatformat:0 }} <small>km/h</small></div></div></div>
+    <div class="col-6 col-md-3"><div class="ds-kpi"><div class="l">Average speed</div><div class="v">{{ t.avg_kmh|floatformat:0 }} <small>km/h</small></div></div></div>
+    <div class="col-6 col-md-3"><div class="ds-kpi"><div class="l">Idling</div><div class="v">{% if t.idle_s is not None %}{{ t.idle_s|dur }}{% else %}—{% endif %}</div></div></div>
+    <div class="col-6 col-md-3"><div class="ds-kpi"><div class="l">{% if s.notes.eco_score is not None %}Tracker eco score{% else %}Harsh events{% endif %}</div>
+      <div class="v">{% if s.notes.eco_score is not None %}{{ s.notes.eco_score }}{% else %}{{ t.harsh_accel|add:t.harsh_brake|add:t.harsh_turn }}{% endif %}</div></div></div>
+  </div></div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header">Score breakdown by parameter</div>
+  <div class="table-responsive"><table class="table table-sm mb-0 ds-table">
+    <thead class="table-light"><tr><th>Parameter</th><th>Measured</th><th>Rate</th><th>Weight</th><th class="text-end">Points lost</th><th style="width: 22%">Parameter score</th></tr></thead>
+    <tbody>
+    {% for b in r.breakdown %}
+      <tr><td>{{ b.label }}</td><td>{{ b.measured }}</td><td>{{ b.rate }}</td><td class="small text-body-secondary">{{ b.weight }}</td>
+        <td class="text-end {% if b.points %}fw-semibold{% endif %}">{% if b.points %}−{{ b.points }}{% else %}0{% endif %}</td>
+        <td><div class="d-flex align-items-center gap-2"><div class="ds-bar flex-grow-1"><span class="{{ b.rating }}" style="width: {{ b.score }}%"></span></div><span class="small fw-semibold" style="min-width: 2rem">{{ b.score }}</span></div></td></tr>
+    {% endfor %}
+      <tr class="fw-bold"><td colspan="4">Overall (100 minus all points lost)</td><td class="text-end"></td>
+        <td>{% if r.score is not None %}<span class="ds-score {{ r.rating }}">{{ r.score }}</span> <span class="ds-rating {{ r.rating }}">{{ r.rating_label }}</span>{% else %}No driving in this period{% endif %}</td></tr>
+    </tbody>
+  </table></div>
+  <div class="card-footer small text-body-secondary">{{ harsh_note }}{% if s.kind == 'vehicle' and not s.notes.ignition %} Trips are split on stops longer than 5 minutes because the tracker sends no ignition value, so idling is not measured.{% endif %}{% if s.kind == 'user' %} Idling is not measured for phone drives.{% endif %}</div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between"><span>Trips</span><span class="small text-body-secondary">{{ s.trips|length }} trip{{ s.trips|length|pluralize }}</span></div>
+  <div class="table-responsive"><table class="table table-sm table-hover mb-0 ds-table">
+    <thead class="table-light"><tr><th>Start</th><th>End</th><th class="text-end">Distance</th><th class="text-end">Driving</th><th class="text-end">Idling</th>
+      <th class="text-end">Max</th><th class="text-end">Avg</th><th class="text-end" title="Harsh acceleration / braking / cornering">Harsh A / B / T</th>
+      <th class="text-end">Over speed</th><th class="text-end">Crash</th><th class="text-end">Score</th>{% if s.notes.drivers %}<th>Driver ID</th>{% endif %}<th class="no-print">Map</th></tr></thead>
+    <tbody>
+    {% for tr in s.trips %}
+      <tr><td>{{ tr.start|date:"d M H:i" }}{% if tr.name %}<div class="small text-body-secondary">{{ tr.name }}</div>{% endif %}</td><td>{{ tr.end|date:"d M H:i" }}</td>
+        <td class="text-end">{{ tr.m.km|floatformat:1 }} km</td><td class="text-end">{{ tr.m.moving_s|dur }}</td>
+        <td class="text-end">{% if tr.m.idle_s is not None %}{{ tr.m.idle_s|dur }}{% else %}—{% endif %}</td>
+        <td class="text-end">{{ tr.m.max_kmh|floatformat:0 }}</td><td class="text-end">{{ tr.m.avg_kmh|floatformat:0 }}</td>
+        <td class="text-end">{{ tr.m.harsh_accel }} / {{ tr.m.harsh_brake }} / {{ tr.m.harsh_turn }}</td>
+        <td class="text-end">{% if tr.m.overspeed_s %}{{ tr.m.overspeed_s|dur }}{% else %}0{% endif %}</td>
+        <td class="text-end {% if tr.m.crashes %}text-danger fw-bold{% endif %}">{{ tr.m.crashes }}</td>
+        <td class="text-end">{% if tr.result.score is not None %}<span class="ds-score {{ tr.result.rating }}">{{ tr.result.score }}</span>{% else %}—{% endif %}</td>
+        {% if s.notes.drivers %}<td>{{ tr.driver_ids|join:", "|default:"—" }}</td>{% endif %}
+        <td class="no-print">{% if s.kind == 'vehicle' %}<a href="{% url 'history' %}?device={{ s.subject.pk }}&from={{ tr.start|date:'c' }}&to={{ tr.end|date:'c' }}" title="Replay on History"><i class="bi bi-signpost-split"></i></a>{% endif %}
+          {% if tr.end_pos %}<a href="https://www.google.com/maps/search/?api=1&query={{ tr.end_pos.0 }},{{ tr.end_pos.1 }}" target="_blank" rel="noopener" title="End point in Google Maps"><i class="bi bi-geo-alt"></i></a>{% endif %}</td></tr>
+    {% empty %}
+      <tr><td colspan="13" class="text-center text-body-secondary py-4">No trips in this period.{% if s.kind == 'vehicle' %} Trips come from the tracker's ignition and movement.{% else %} Drives appear here when they are stopped in Car view.{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+<div class="small text-body-secondary">Weights in use: harsh acceleration {{ s.cfg.w_harsh_accel }}, braking {{ s.cfg.w_harsh_brake }}, cornering {{ s.cfg.w_harsh_turn }} points per event per 100 km (minimum {{ s.cfg.min_km }} km);
+  over speeding {{ s.cfg.w_overspeed }} per % of driving time above {{ s.cfg.speed_limit_kmh }} km/h; idling {{ s.cfg.w_idling }} per % above {{ s.cfg.idle_allow_pct }} %; crash {{ s.cfg.w_crash }} each.
+  {% if user.is_staff %}<a class="no-print" href="{% url 'drivers' %}?{{ qs }}#driverscore">Change weights</a>{% endif %}</div>
+{% endwith %}{% endblock %}
+{% block scripts %}{% include "tracking/_ds_print.html" %}{% if auto_print %}<script>window.addEventListener("load", () => setTimeout(dsPrint, 300));</script>{% endif %}{% endblock %}

@@ -1,0 +1,9 @@
+<script>
+/* Print in the light theme, so a dark screen still gives a white PDF. */
+function dsPrint() { window.print(); }
+(function () {
+  let prev = null;
+  window.addEventListener("beforeprint", () => { prev = document.documentElement.getAttribute("data-bs-theme"); document.documentElement.setAttribute("data-bs-theme", "light"); });
+  window.addEventListener("afterprint", () => { if (prev) document.documentElement.setAttribute("data-bs-theme", prev); });
+})();
+</script>

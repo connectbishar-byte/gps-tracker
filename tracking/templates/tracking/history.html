@@ -43,6 +43,11 @@
   const setRange = h => { const now = new Date(); document.getElementById("hto").value = toLocal(now);
     document.getElementById("hfrom").value = toLocal(new Date(now - h * 3600e3)); };
   setRange(24);
+  // ?from=…&to=… (ISO times, e.g. from a trip on the Driver score sheet) opens that window
+  if (params.get("from") && params.get("to")) {
+    const pf = new Date(params.get("from")), pt = new Date(params.get("to"));
+    if (!isNaN(pf) && !isNaN(pt)) { document.getElementById("hfrom").value = toLocal(pf); document.getElementById("hto").value = toLocal(new Date(pt.getTime() + 60e3)); }
+  }
   document.querySelectorAll("[data-h]").forEach(b => b.onclick = () => { setRange(+b.dataset.h); load(); });
   document.getElementById("hform").onsubmit = e => { e.preventDefault(); load(); };
 

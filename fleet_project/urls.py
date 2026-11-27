@@ -3,7 +3,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
-from tracking import views
+from tracking import driverscore, views
 
 urlpatterns = [
     path("", views.dashboard, name="dashboard"),
@@ -25,6 +25,9 @@ urlpatterns = [
     path("settings/assistant/", views.settings_assistant, name="settings_assistant"),
     path("terminal/", views.terminal, name="terminal"),
     path("", include("tracking.places_urls")),  # car view /drive/ and saved places /places/
+    path("drivers/", driverscore.drivers_page, name="drivers"),
+    path("drivers/<str:kind>/<int:pk>/", driverscore.driver_sheet, name="driver_sheet"),
+    path("drivers/settings/", driverscore.driver_settings, name="driver_settings"),
     path("account/password/", views.PasswordChange.as_view(), name="password_change"),
     path("api/v1/", include("tracking.api_urls")),
     path("api/schema/", SpectacularAPIView.as_view(), name="api_schema"),
