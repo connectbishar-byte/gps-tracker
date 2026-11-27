@@ -30,7 +30,7 @@
   <div id="dmap" class="dv-map"></div>
 
   <header class="dv-top">
-    <a class="dv-btn" href="{% url 'dashboard' %}" title="Back to the tracker" aria-label="Back"><i class="bi bi-chevron-left"></i></a>
+    <a class="dv-btn" href="{% url 'dashboard' %}" id="dback" title="Back to the tracker" aria-label="Back"><i class="bi bi-chevron-left"></i></a>
     <select id="dsource" class="form-select form-select-sm dv-source" aria-label="Position source">
       <option value="phone">This phone's GPS</option>
       {% for v in vehicles %}<option value="{{ v.id }}">{{ v.name }}{% if v.plate %} · {{ v.plate }}{% endif %}</option>{% endfor %}
@@ -64,7 +64,27 @@
       </div>
     </div>
     <div class="dv-tiles" id="dtiles"></div>
+    <nav class="dv-nav" aria-label="Car view">
+      <button data-pop="home"><i class="bi bi-house-door-fill"></i><span>Home</span></button>
+      <button data-pop="live"><i class="bi bi-broadcast-pin"></i><span>Live</span></button>
+      <button data-pop="driver"><i class="bi bi-person-badge-fill"></i><span>Driver</span></button>
+      <button data-pop="trips"><i class="bi bi-signpost-split-fill"></i><span>Trips</span></button>
+    </nav>
   </section>
+
+  <!-- Home / Live / Driver / Trips pop-ups: the drive keeps recording underneath -->
+  <div class="dv-pop" id="dpop" hidden>
+    <div class="dv-pop-box">
+      <div class="dv-pop-head">
+        <h2 class="h6 m-0" id="dpoptitle"></h2>
+        <span class="dv-pop-rec" id="dpoprec" hidden><i class="bi bi-record-circle-fill"></i> Recording</span>
+        <span class="flex-grow-1"></span>
+        <a class="btn btn-sm btn-outline-secondary" id="dpopopen" target="_blank" rel="noopener" hidden title="Open in a new tab"><i class="bi bi-box-arrow-up-right"></i></a>
+        <button class="dv-btn dv-pop-x" id="dpopclose" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="dv-pop-body" id="dpopbody"></div>
+    </div>
+  </div>
 
   <!-- Settings: which tiles show, speed limit, behaviour -->
   <div class="dv-modal" id="dcfgbox" hidden>
@@ -94,16 +114,16 @@
   <!-- Stop: save the place -->
   <div class="dv-modal" id="dstopbox" hidden>
     <div class="dv-dialog">
-      <h2 class="h5 mb-1">Drive stopped</h2>
+      <h2 class="h5 mb-1">Save this trip?</h2>
       <div class="small text-body-secondary mb-2" id="dstopsum"></div>
-      <label class="form-label small mb-1" for="dstopname">Save this place as</label>
+      <label class="form-label small mb-1" for="dstopname">Trip name</label>
       <input class="form-control mb-2" id="dstopname" maxlength="120">
       <label class="form-label small mb-1" for="dstopnotes">Notes (optional)</label>
       <textarea class="form-control mb-3" id="dstopnotes" rows="2" maxlength="2000"></textarea>
       <div class="d-flex gap-2 flex-wrap">
         <button class="btn btn-outline-danger btn-sm" id="dstopdiscard">Don't save</button>
         <button class="btn btn-outline-secondary btn-sm" id="dstopresume">Keep driving</button>
-        <button class="btn btn-primary ms-auto" id="dstopsave"><i class="bi bi-check2"></i> Save place</button>
+        <button class="btn btn-primary ms-auto" id="dstopsave"><i class="bi bi-check2"></i> Save trip</button>
       </div>
     </div>
   </div>
@@ -114,7 +134,7 @@
 <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
 {% if GOOGLE_MAPS_KEY %}<script src="{% static 'vendor/googlemutant/Leaflet.GoogleMutant.js' %}"></script>{% endif %}
 <script>window.FLEET_CFG = {tz: "{{ FLEET_TZ|default:'Asia/Dubai' }}", poll: {{ FLEET.POLL_SECONDS }}, api: "{% url 'api_fleet' %}", rx: "", gkey: "{{ GOOGLE_MAPS_KEY|escapejs }}", raw: false};
-window.DRIVE_CFG = {places: "{% url 'place-list' %}", geocode: "{% url 'places_geocode' %}", placesPage: "{% url 'places' %}", csrf: "{{ csrf_token }}"};</script>
+window.DRIVE_CFG = {history: "{% url 'api_history' %}", dashboard: "{% url 'dashboard' %}?embed=1", live: "{% url 'live' %}?embed=1", drivers: "{% url 'drivers' %}?embed=1", placesEmbed: "{% url 'places' %}?embed=1&kind=trip", places: "{% url 'place-list' %}", geocode: "{% url 'places_geocode' %}", placesPage: "{% url 'places' %}", csrf: "{{ csrf_token }}"};</script>
 <script src="{% static 'tracking/app.js' %}?v={{ ASSET_V }}"></script>
 <script src="{% static 'tracking/drive.js' %}?v={{ ASSET_V }}"></script>
 </body>

@@ -148,7 +148,8 @@ if env_bool("FLEET_BEHIND_HTTPS_PROXY", False):
 SESSION_COOKIE_AGE = 60 * 60 * 12
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
-X_FRAME_OPTIONS = "DENY"
+# SAMEORIGIN (not DENY) so the car view can show the live map and driver pages in its pop-ups.
+X_FRAME_OPTIONS = "SAMEORIGIN"
 SECURE_CONTENT_TYPE_NOSNIFF = True
 # Send the site origin as Referer to other sites (Django's default "same-origin" sends none), so a
 # Google Maps key restricted to https://gps.melticetech.com/* is accepted.
