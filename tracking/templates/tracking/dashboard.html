@@ -72,7 +72,7 @@
         <td>${d.fix ? d.fix.speed + " km/h" : "—"}</td><td>${yn(d.ignition)}</td>
         <td>${d.gsm ?? "—"}${d.gsm != null ? "/5" : ""}</td><td>${d.ext_v != null ? d.ext_v.toFixed(2) + " V" : "—"}</td></tr>`);
       if (d.fix) {
-        L.marker([d.fix.lat, d.fix.lon], {icon: Fleet.vehicleIcon(d.state, d.fix.angle)}).bindTooltip(d.name).addTo(layer);
+        L.marker([d.fix.lat, d.fix.lon], {icon: Fleet.vehicleIcon(d.state, Fleet.heading(d.fix))}).bindTooltip(d.name).addTo(layer);
         pts.push([d.fix.lat, d.fix.lon]);
       }
     }
