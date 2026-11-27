@@ -99,3 +99,51 @@
   .dv .leaflet-top.leaflet-right { right: min(46vw, 420px); }
   .dv-sheet.min .dv-tiles { display: grid; }
 }
+
+/* Bottom bar: Home / Live / Driver / Trips */
+.dv-nav { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(148,163,184,.18); }
+.dv-nav button { border: 0; background: none; color: inherit; opacity: .85; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  font-size: 12px; padding: 4px 0; border-radius: 10px; min-height: 48px; }
+.dv-nav button i { font-size: 22px; }
+.dv-nav button.on { opacity: 1; color: #14b8a6; background: rgba(20,184,166,.12); }
+
+/* Pop-ups over the car view; GPS recording keeps running underneath */
+.dv-pop { position: absolute; inset: 0; z-index: 900; background: rgba(0,0,0,.5); display: flex; align-items: flex-end; justify-content: center; }
+.dv-pop[hidden] { display: none; }
+.dv-pop-box { background: var(--card); color: var(--ink); width: 100%; max-width: 900px; height: 86vh; border-radius: 18px 18px 0 0;
+  display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 -8px 30px rgba(0,0,0,.5); padding-bottom: env(safe-area-inset-bottom); }
+@media (min-width: 900px) { .dv-pop { align-items: center; } .dv-pop-box { border-radius: 18px; height: 80vh; } }
+.dv-pop-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px 8px 16px; border-bottom: 1px solid var(--line); }
+.dv-pop-x { background: transparent; color: var(--ink); border-color: var(--line); box-shadow: none; }
+.dv-pop-rec { font-size: 12px; color: #ef4444; font-weight: 600; }
+.dv-pop-rec i { animation: dvblink 1.2s infinite; }
+@keyframes dvblink { 50% { opacity: .25; } }
+.dv-pop-body { flex: 1; overflow-y: auto; position: relative; }
+.dv-pop-body iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: var(--bg); }
+.dv-pane { padding: 14px 16px; }
+.dv-kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.dv-kpi { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; }
+.dv-kpi .k { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }
+.dv-kpi .v { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.dv-kpi .v small { font-size: 12px; font-weight: 500; color: var(--muted); margin-left: 2px; }
+.dv-links { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.dv-links button, .dv-links a { display: flex; align-items: center; gap: 8px; padding: 12px; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--panel-2); color: var(--ink); text-decoration: none; font-weight: 600; font-size: 14px; text-align: left; }
+.dv-links i { font-size: 20px; color: #14b8a6; }
+.dv-gauge { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; }
+.dv-gauge svg { width: 120px; height: 120px; flex: 0 0 120px; }
+.dv-bar { margin-bottom: 9px; font-size: 13px; }
+.dv-bar .t { display: flex; justify-content: space-between; }
+.dv-bar .b { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; margin-top: 3px; }
+.dv-bar .b span { display: block; height: 100%; border-radius: 4px; }
+.dv-trip { display: flex; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
+.dv-trip .s { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; flex: 0 0 40px; }
+.dv-gapnote { font-size: 12px; color: var(--muted); }
+.dv-route-casing { pointer-events: none; }
+/* While a pop-up is open the sheet shrinks to just the bottom bar, kept above the pop-up so tabs switch directly */
+.dv.popmode .dv-sheet { z-index: 950; }
+.dv.popmode .dv-main, .dv.popmode .dv-tiles, .dv.popmode .dv-handle { display: none; }
+.dv.popmode .dv-nav { margin-top: 0; border-top: 0; }
+.dv.popmode .dv-pop { align-items: stretch; }
+.dv.popmode .dv-pop-box { height: auto; max-width: none; border-radius: 18px 18px 0 0; margin-top: calc(env(safe-area-inset-top) + 8px); }
+.dv .leaflet-top.leaflet-left { top: calc(env(safe-area-inset-top) + 60px); }

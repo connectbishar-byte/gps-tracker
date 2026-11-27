@@ -336,3 +336,8 @@ body.bot-bottom-right .map-toast { bottom: 110px; }
 .map-quick a { font-size: 15px; display: flex; align-items: center; justify-content: center; }
 .map-quick a.busy i { animation: mq-pulse 1s infinite; }
 @keyframes mq-pulse { 50% { opacity: .3; } }
+
+/* ?embed=1: page shown inside the car view pop-ups, without the menu rail, top bar or assistant */
+body.embed .rail, body.embed .topbar, body.embed .bot-root { display: none !important; }
+body.embed .shell { margin-left: 0; }
+body.embed .live-wrap, body.embed .places-wrap { min-height: 100vh; }
