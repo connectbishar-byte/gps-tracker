@@ -1,0 +1,10 @@
+{
+  "name": "Meltice GPS Tracker · Car view",
+  "short_name": "Car view",
+  "start_url": "/drive/",
+  "scope": "/",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#07101d",
+  "theme_color": "#07101d"
+}
