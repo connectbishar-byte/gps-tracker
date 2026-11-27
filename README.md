@@ -73,8 +73,11 @@ $env:FLEET_DB_ADMIN_PASSWORD="<sa password>"; python manage.py mssql_setup   # c
 python manage.py migrate
 python manage.py createcachetable
 python manage.py ensure_admin
-python manage.py seed_demo        # optional demo vehicles + 2 h of history
+python manage.py seed_demo --i-want-demo-data   # optional, local trials only: fake vehicles + 2 h of history
 ```
+
+Remove demo/test vehicles again (keeps the Jeep Wrangler; dry run first, then `--yes`):
+`python manage.py clean_demo_data` then `python manage.py clean_demo_data --yes`.
 
 No SQL Server at hand? `FLEET_DB_ENGINE=sqlite` in `.env` runs everything on a single file for a quick trial.
 

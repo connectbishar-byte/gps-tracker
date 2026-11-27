@@ -412,6 +412,7 @@ def run_selftest(request):
         messages.error(request, "Only staff users can run the connectivity self-test.")
         return redirect("connectivity")
     from .simulator import run_connectivity_suite
+    from . import cleanup
     cfg = settings.FLEET
     Device.objects.get_or_create(imei=cfg["SELFTEST_IMEI"],
                                  defaults={"name": "Self-test simulator", "model": "SIMULATOR", "group": "Test"})
@@ -419,6 +420,7 @@ def run_selftest(request):
     port = int(request.POST.get("port") or cfg["SELFTEST_PORT"])
     full = request.POST.get("mode", "full") == "full"
     steps = run_connectivity_suite(host, port, cfg["SELFTEST_IMEI"], full=full, timeout=8)
+    cleanup.remove_selftest_data(cfg["SELFTEST_IMEI"])  # keep the simulator off the map and reports
     ok = all(s["ok"] for s in steps)
     passed = sum(s["ok"] for s in steps)
     run = TestRun.objects.create(target=f"{host}:{port}", passed=ok, steps=steps,

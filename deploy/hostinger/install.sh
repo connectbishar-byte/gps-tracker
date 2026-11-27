@@ -127,8 +127,7 @@ run migrate --noinput
 run createcachetable
 run collectstatic --noinput -v0
 run ensure_admin
-# self-test IMEI so tools/fmc_probe.py and the web self-test work immediately (disable it later in Devices)
-run register_device 356307042441013 Self-test-simulator --model SIMULATOR --group Test
+# (no demo/self-test vehicle is registered: the web self-test registers its simulator only while it runs)
 run check
 
 echo "==> systemd units"

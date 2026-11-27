@@ -25,7 +25,7 @@
           {% for d in devices %}
             <tr><td><a href="{% url 'device_detail' d.id %}">{{ d.name }}</a></td><td colspan="8" class="text-muted">loading…</td></tr>
           {% empty %}
-            <tr><td colspan="9" class="text-center text-muted py-4">No devices registered. <a href="{% url 'devices' %}">Register an IMEI</a> or run <code>python manage.py seed_demo</code>.</td></tr>
+            <tr><td colspan="9" class="text-center text-muted py-4">No devices registered. <a href="{% url 'devices' %}">Register an IMEI</a>.</td></tr>
           {% endfor %}
           </tbody>
         </table>

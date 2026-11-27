@@ -13,7 +13,7 @@ case "$1" in
     python manage.py migrate --noinput
     python manage.py createcachetable
     python manage.py ensure_admin
-    if [ "${FLEET_SEED_DEMO:-false}" = "true" ]; then python manage.py seed_demo; fi
+    if [ "${FLEET_SEED_DEMO:-false}" = "true" ]; then python manage.py seed_demo --i-want-demo-data; fi
     exec gunicorn fleet_project.wsgi:application --bind 0.0.0.0:8000 --workers ${GUNICORN_WORKERS:-3} --access-logfile -
     ;;
   receiver)
@@ -30,7 +30,7 @@ case "$1" in
     export FLEET_PROCESS=simulator
     shift
     wait_for_schema
-    python manage.py seed_demo --devices-only
+    python manage.py seed_demo --devices-only --i-want-demo-data
     exec python manage.py simulate_device "$@"
     ;;
   *)

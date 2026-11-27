@@ -471,6 +471,7 @@ class TestRunViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.
     def run(self, request):
         """Run the protocol self-test against a receiver (staff only). Takes a few seconds."""
         from .simulator import run_connectivity_suite
+        from . import cleanup
         s = RunTestSerializer(data=request.data)
         s.is_valid(raise_exception=True)
         cfg = settings.FLEET
@@ -480,6 +481,7 @@ class TestRunViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.
         port = s.validated_data.get("port") or cfg["SELFTEST_PORT"]
         steps = run_connectivity_suite(host, port, cfg["SELFTEST_IMEI"], full=s.validated_data["mode"] == "full",
                                        timeout=8)
+        cleanup.remove_selftest_data(cfg["SELFTEST_IMEI"])  # keep the simulator off the map and reports
         passed = sum(x["ok"] for x in steps)
         run = TestRun.objects.create(target=f"{host}:{port}", passed=passed == len(steps), steps=steps,
                                      summary=f"{passed}/{len(steps)} steps passed")

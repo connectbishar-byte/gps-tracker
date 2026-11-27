@@ -1,3 +1,4 @@
+import os
 import random
 import time
 
@@ -19,13 +20,23 @@ DEMO = [
 
 
 class Command(BaseCommand):
-    help = "Register demo devices and load ~2 h of synthetic history through the real ingest pipeline."
+    help = ("Register demo devices and load ~2 h of synthetic history through the real ingest pipeline. "
+            "Local trials only: refuses to run unless FLEET_ALLOW_DEMO_DATA=true or --i-want-demo-data is given. "
+            "Remove it again with `manage.py clean_demo_data --yes`.")
 
     def add_arguments(self, parser):
         parser.add_argument("--devices-only", action="store_true")
         parser.add_argument("--minutes", type=int, default=120)
+        parser.add_argument("--i-want-demo-data", action="store_true",
+                            help="really create the fake vehicles (never on the live server)")
 
     def handle(self, *args, **o):
+        allowed = os.environ.get("FLEET_ALLOW_DEMO_DATA", "").lower() in ("1", "true", "yes")
+        if not (allowed or o["i_want_demo_data"]):
+            self.stdout.write(self.style.WARNING(
+                "seed_demo skipped: demo vehicles are disabled. Use --i-want-demo-data (or "
+                "FLEET_ALLOW_DEMO_DATA=true) on a local test install only."))
+            return
         now_ms = int(time.time() * 1000)
         for n, (imei, name, plate, group, kind) in enumerate(DEMO):
             dev, created = Device.objects.get_or_create(

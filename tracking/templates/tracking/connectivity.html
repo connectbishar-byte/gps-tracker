@@ -20,7 +20,7 @@
     <div class="card mb-3">
       <div class="card-header">Run connectivity self-test</div>
       <div class="card-body">
-        <p class="small text-muted mb-2">Connects to the receiver as a simulated FMC130 (IMEI {{ selftest_imei_masked }}{% if not selftest_imei_registered %}, auto-registered on first run{% endif %}) and runs the protocol acceptance checks: handshake accept/reject, official Codec 8/8E samples, fragmented and coalesced TCP, bad CRC, replay and truncated frame.</p>
+        <p class="small text-muted mb-2">Connects to the receiver as a simulated FMC130 (IMEI {{ selftest_imei_masked }}, registered only while the test runs and removed afterwards so it never shows as a vehicle) and runs the protocol acceptance checks: handshake accept/reject, official Codec 8/8E samples, fragmented and coalesced TCP, bad CRC, replay and truncated frame.</p>
         {% if user.is_staff %}
         <form method="post" action="{% url 'run_selftest' %}" class="row g-2">{% csrf_token %}
           <div class="col-6"><label class="form-label small mb-0">Host</label><input class="form-control form-control-sm" name="host" value="{{ FLEET.SELFTEST_HOST }}"></div>
