@@ -220,7 +220,7 @@ curl -H "Authorization: Token $TOKEN" "https://fleet.melticetech.com/api/v1/port
 | `/api/v1/connections/`, `/api/v1/receiver/` | TCP connections incl. rejected handshakes; receiver health |
 | `/api/v1/tests/`, `POST /api/v1/tests/run/` | connectivity self-test results; run one (staff) |
 
-## Google Maps and OpenAI keys
+## Google Maps, Claude and OpenAI keys
 
 Sign in as an admin and open **Settings → Integrations**.
 
@@ -245,6 +245,24 @@ Library* → enable **Maps JavaScript API** → *Credentials → Create credenti
 *Application restrictions → Websites* → `https://gps.melticetech.com/*` (plus `http://127.0.0.1:8000/*`
 for local testing), and *API restrictions* → Maps JavaScript API. The key is visible to signed-in browsers
 by design, so the website restriction is what protects it.
+
+## AI assistant (the robot on every page)
+
+A small animated robot sits in a corner of every page. Click it to open a chat panel:
+
+- **Tips for this page**: what the page is for and how to use it (works with no key).
+- **Check for problems**: a health check from the app's own data: receiver heartbeat, vehicles with no
+  signal / never connected / no GPS fix / low voltage, rejected IMEIs and decode errors in the last 24 h, a failed
+  self-test, and Google Maps or script errors seen in your browser. Each finding says what to do and links to the
+  page. With "Speak up" on, the robot shows a badge and a speech bubble when it finds something.
+- **Questions**: with an Anthropic key (Settings → Integrations) questions are answered by Claude
+  (`claude-opus-5-5` unless you set another model) using a live snapshot of the fleet and the health check.
+  OpenAI can be chosen instead. Without a key the robot answers from a built-in troubleshooting guide.
+
+Admins configure it on **Settings → AI assistant**: on/off, name, position (any corner), who may use it, AI
+provider, answer style, greeting and extra instructions. Each user is limited to 30 questions per 10 minutes.
+What is sent to the AI provider: vehicle names, plates, groups and states, health findings and the visible page
+text. Never API keys or full IMEIs.
 
 ## Configuration
 

@@ -10,6 +10,9 @@
   var dark = pref === "dark" || (pref === "auto" && window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
   document.documentElement.setAttribute("data-bs-theme", dark ? "dark" : "light");
   document.documentElement.dataset.themePref = pref;
+  /* remember script errors so the assistant can help with them */
+  window.__mgtErrors = [];
+  window.addEventListener("error", function (e) { if (window.__mgtErrors.length < 5) window.__mgtErrors.push((e.message || "error") + (e.filename ? " @ " + e.filename.split("/").pop() + ":" + e.lineno : "")); });
 })();
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -82,5 +85,9 @@
 <script>window.FLEET_CFG = {tz: "{{ FLEET_TZ|default:'Asia/Dubai' }}", poll: {{ FLEET.POLL_SECONDS }}, api: "{% url 'api_fleet' %}", rx: "{% url 'api_receiver' %}", gkey: "{{ GOOGLE_MAPS_KEY|escapejs }}", raw: {{ can_view_raw|yesno:"true,false" }}};</script>
 <script src="{% static 'tracking/app.js' %}?v={{ ASSET_V }}"></script>
 {% block scripts %}{% endblock %}
+{% if ASSISTANT %}<div id="mgtBot" data-name="{{ ASSISTANT.name }}" data-position="{{ ASSISTANT.position }}" data-page="{{ nav|default:'' }}"
+  data-proactive="{{ ASSISTANT.proactive|yesno:'1,0' }}" data-csrf="{{ csrf_token }}"
+  data-context="{% url 'api_assistant_context' %}" data-chat="{% url 'api_assistant_chat' %}" data-user="{{ user.username }}"></div>
+<script src="{% static 'tracking/assistant.js' %}?v={{ ASSET_V }}"></script>{% endif %}
 </body>
 </html>

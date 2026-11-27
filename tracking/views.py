@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import logging
 from datetime import timedelta
 
 from django import forms
@@ -18,7 +19,9 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_POST
 
-from . import codec, integrations, io_dictionary
+import json
+
+from . import assistant, codec, integrations, io_dictionary
 from .models import AVLRecord, Connection, Device, RawPacket, ReceiverHeartbeat, TestRun, mask_imei
 
 
@@ -33,6 +36,7 @@ def _asset_version():
 
 
 ASSET_V = _asset_version()
+log = logging.getLogger("fleet.web")
 
 
 def fleet_context(request):
@@ -43,6 +47,12 @@ def fleet_context(request):
             ctx["GOOGLE_MAPS_KEY"] = integrations.get("google_maps_api_key")
         except Exception:  # noqa: BLE001 - a settings problem must never break page rendering
             pass
+        try:
+            acfg = assistant.get_config()
+            if assistant.can_use(request.user, acfg):
+                ctx["ASSISTANT"] = {"name": acfg["name"], "position": acfg["position"], "proactive": acfg["proactive"]}
+        except Exception:  # noqa: BLE001
+            log.exception("assistant config unreadable")
     return ctx
 
 
@@ -395,8 +405,15 @@ def settings_page(request):
         "io_map": sorted((k, v[0], v[3]) for k, v in io_dictionary.IO_MAP.items()),
         "tz": settings.TIME_ZONE,
         "integrations": integrations.status() if request.user.is_staff else None,
+        "assistant": _assistant_settings() if request.user.is_staff else None,
         "last_purge": _last_purge(),
     })
+
+
+def _assistant_settings():
+    return {"cfg": assistant.get_config(), "ai": assistant.ai_status(), "positions": assistant.POSITIONS,
+            "providers": assistant.PROVIDERS, "audiences": assistant.AUDIENCES, "details": assistant.DETAIL,
+            "limits": assistant.LIMITS}
 
 
 def _last_purge():
@@ -439,6 +456,82 @@ def settings_test_openai(request):
     if not key:
         return JsonResponse({"ok": False, "detail": "Enter an OpenAI API key first."})
     return JsonResponse(integrations.test_openai(key, model))
+
+
+@login_required
+@staff_required
+@require_POST
+def settings_test_anthropic(request):
+    key = (request.POST.get("anthropic_api_key") or "").strip() or integrations.get("anthropic_api_key")
+    model = (request.POST.get("anthropic_model") or "").strip() or integrations.get("anthropic_model")
+    if not key:
+        return JsonResponse({"ok": False, "detail": "Enter an Anthropic API key first."})
+    return JsonResponse(integrations.test_anthropic(key, model))
+
+
+@login_required
+@staff_required
+@require_POST
+def settings_assistant(request):
+    cfg, errors = assistant.clean_config(request.POST)
+    for e in errors:
+        messages.error(request, e)
+    if not errors:
+        assistant.save_config(cfg, request.user.get_username())
+        messages.success(request, f"AI assistant settings saved{'' if cfg['enabled'] else ' (assistant turned off)'}.")
+    return redirect(reverse("settings") + "#assistant")
+
+
+# ---------------------------------------------------------------------------
+# AI assistant (the robot on every page)
+# ---------------------------------------------------------------------------
+def _assistant_allowed(request):
+    return assistant.can_use(request.user)
+
+
+@login_required
+@require_POST
+def api_assistant_context(request):
+    """Greeting, page tips and the health check for the page the user is on."""
+    if not _assistant_allowed(request):
+        return JsonResponse({"error": "The assistant is turned off."}, status=404)
+    try:
+        body = json.loads(request.body or b"{}")
+    except ValueError:
+        body = {}
+    nav = str(body.get("page") or "")[:30]
+    cfg = assistant.get_config()
+    user = request.user
+    who = user.first_name or user.get_username()
+    greeting = cfg["greeting"].replace("{user}", who).replace("{name}", cfg["name"])
+    return JsonResponse({
+        "name": cfg["name"], "greeting": greeting, "ai": assistant.ai_status(cfg)["label"],
+        "ai_ready": assistant.ai_status(cfg)["ready"], "page": assistant.page_info(nav),
+        "findings": assistant.diagnostics(user, body.get("client") if isinstance(body.get("client"), dict) else None),
+        "can_configure": user.is_staff,
+    })
+
+
+@login_required
+@require_POST
+def api_assistant_chat(request):
+    if not _assistant_allowed(request):
+        return JsonResponse({"error": "The assistant is turned off."}, status=404)
+    try:
+        body = json.loads(request.body or b"{}")
+    except ValueError:
+        return JsonResponse({"error": "Bad request."}, status=400)
+    question = str(body.get("message") or "").strip()[:2000]
+    if not question:
+        return JsonResponse({"error": "Type a question first."}, status=400)
+    if assistant.rate_limited(request.user):
+        return JsonResponse({"reply": "You've asked a lot of questions in a short time. Give me a few minutes, please.",
+                             "source": "limit"}, status=429)
+    history = body.get("history") if isinstance(body.get("history"), list) else []
+    client = body.get("client") if isinstance(body.get("client"), dict) else None
+    res = assistant.answer(request.user, question, history, str(body.get("page") or "")[:30],
+                           str(body.get("page_text") or "")[:1500], client)
+    return JsonResponse(res)
 
 
 # ---------------------------------------------------------------------------

@@ -1,9 +1,10 @@
 """
-Integration settings: Google Maps and OpenAI.
+Integration settings: Google Maps, Anthropic (Claude) and OpenAI.
 
 An admin sets them on the Settings page; they are stored in the IntegrationSetting table, encrypted
 with Fernet using a key derived from Django's SECRET_KEY. If a value has not been set in the UI, the
-server environment is used instead (FLEET_GOOGLE_MAPS_API_KEY, OPENAI_API_KEY, OPENAI_MODEL), so
+server environment is used instead (FLEET_GOOGLE_MAPS_API_KEY, ANTHROPIC_API_KEY, ANTHROPIC_MODEL,
+OPENAI_API_KEY, OPENAI_MODEL), so
 keys can also live in /etc/meltice-gps-tracker/fleet.env or .env.
 
 Note: if SECRET_KEY changes, saved values can no longer be decrypted. They then read as "not set"
@@ -30,6 +31,8 @@ log = logging.getLogger("fleet.integrations")
 # name -> (label, environment variable, secret?)
 FIELDS = {
     "google_maps_api_key": ("Google Maps API key", "FLEET_GOOGLE_MAPS_API_KEY", True),
+    "anthropic_api_key": ("Anthropic (Claude) API key", "ANTHROPIC_API_KEY", True),
+    "anthropic_model": ("Claude model", "ANTHROPIC_MODEL", False),
     "openai_api_key": ("OpenAI API key", "OPENAI_API_KEY", True),
     "openai_model": ("OpenAI model", "OPENAI_MODEL", False),
 }
@@ -133,6 +136,32 @@ def test_openai(api_key: str, model: str = "", timeout: float = 10) -> dict:
         return {"ok": False, "detail": f"Could not reach OpenAI from this server: {getattr(exc, 'reason', exc)}"}
     ids = sorted(m.get("id", "") for m in body.get("data", []) if m.get("id"))
     res = {"ok": True, "models": ids, "detail": f"Key works. {len(ids)} models available."}
+    if model:
+        res["model_ok"] = model in ids
+        if not res["model_ok"]:
+            res["ok"] = False
+            res["detail"] = f"Key works, but the model “{model}” is not available to it."
+    return res
+
+
+def test_anthropic(api_key: str, model: str = "", timeout: float = 10) -> dict:
+    """List the Claude models the key can use (free, sends no conversation data)."""
+    import anthropic
+
+    client = anthropic.Anthropic(api_key=api_key, timeout=timeout, max_retries=0)
+    try:
+        ids = sorted(m.id for m in client.models.list(limit=100))
+    except anthropic.AuthenticationError:
+        return {"ok": False, "detail": "HTTP 401. The key was rejected."}
+    except anthropic.PermissionDeniedError:
+        return {"ok": False, "detail": "HTTP 403. The key has no access."}
+    except anthropic.RateLimitError:
+        return {"ok": False, "detail": "HTTP 429. Rate limit reached, try again in a minute."}
+    except anthropic.APIStatusError as exc:
+        return {"ok": False, "detail": f"HTTP {exc.status_code}. {exc.message}"}
+    except anthropic.APIConnectionError as exc:
+        return {"ok": False, "detail": f"Could not reach Anthropic from this server: {exc}"}
+    res = {"ok": True, "models": ids, "detail": f"Key works. {len(ids)} Claude models available."}
     if model:
         res["model_ok"] = model in ids
         if not res["model_ok"]:

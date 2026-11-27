@@ -1,4 +1,4 @@
-/* Settings page: test buttons for the Google Maps and OpenAI keys. */
+/* Settings page: test buttons for the Google Maps, Anthropic and OpenAI keys. */
 (function () {
   const $ = id => document.getElementById(id);
   const csrf = document.querySelector("#integrations input[name=csrfmiddlewaretoken]").value;
@@ -49,6 +49,23 @@
       pending = {win: f.contentWindow, timer: setTimeout(() => { show($("googleResult"), false, "No answer from Google within 20 s."); pending = null; }, 20000)};
     });
   }
+
+  // Anthropic: the server lists the Claude models the key can use (free, sends no conversation data).
+  const aBtn = $("testAnthropic");
+  if (aBtn) aBtn.addEventListener("click", async () => {
+    const body = new URLSearchParams({anthropic_api_key: $("id_anthropic_api_key").value.trim(), anthropic_model: $("id_anthropic_model").value.trim()});
+    show($("anthropicResult"), null, "Testing…");
+    aBtn.disabled = true;
+    try {
+      const r = await fetch(aBtn.closest("form").action + "test-anthropic/", {method: "POST", body, credentials: "same-origin",
+        headers: {"X-CSRFToken": csrf, "Accept": "application/json"}});
+      const d = await r.json();
+      show($("anthropicResult"), d.ok, d.detail);
+      if (d.models) $("anthropicModels").innerHTML = d.models.map(m => `<option value="${Fleet.esc(m)}">`).join("");
+    } catch (e) {
+      show($("anthropicResult"), false, "Test failed: " + e.message);
+    } finally { aBtn.disabled = false; }
+  });
 
   // OpenAI: the server calls GET /v1/models with the key (free, sends no data) and lists the models.
   const oBtn = $("testOpenai");
