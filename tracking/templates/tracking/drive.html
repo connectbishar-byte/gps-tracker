@@ -11,6 +11,19 @@
   document.documentElement.dataset.themePref = pref;
 })();
 </script>
+<script>
+/* Car view opened inside one of its own pop-ups (e.g. the Car view button on Saved places): close that
+   pop-up instead of nesting a second car view, and a second bottom bar, inside it. */
+(function () {
+  if (window.self === window.top) return;
+  window.__mgtNested = true;
+  document.documentElement.style.display = "none";
+  try {
+    if (window.top.__mgtCarView) window.top.__mgtCarView.closePop();
+    else window.top.location.href = location.pathname;
+  } catch (e) { /* not same-origin: leave it */ }
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#07101d">
 <meta name="mobile-web-app-capable" content="yes">
