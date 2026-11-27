@@ -252,6 +252,29 @@ Crossings replayed from the tracker's memory more than 30 min late are logged bu
 | Meta WhatsApp Cloud API | Permanent access token + phone number ID (developers.facebook.com → app → WhatsApp → API setup), and an approved Utility template with one variable, e.g. `Meltice GPS alert: {{1}}`. |
 | Twilio WhatsApp | Account SID, auth token and WhatsApp sender number. Sandbox recipients first send the `join …` code. |
 
+## Alert rules and the WhatsApp Cloud API functions
+
+**Alerts** (left menu) is the rule engine. Each rule says *when* (enters / leaves a zone, over speed for N minutes,
+idling with the ignition on for N minutes, crash detected (AVL 247), harsh acceleration / braking / cornering (AVL 253),
+ignition on / off), *which vehicles* (none ticked = all), *who* (numbers, blank = the default WhatsApp numbers) and
+*how* (WhatsApp now; SMS is already a channel option and is logged as "not available yet" until a provider is added in
+`tracking/rules.py → deliver()`). Each rule has a cooldown, a message with placeholders (`{vehicle} {speed} {limit}
+{zone} {time} {duration} {map}` …) and a **Test** button. The **Alert log** tab shows every alert and its delivery.
+
+**Meta WhatsApp Cloud API** (Settings → WhatsApp alerts → Meta): Access token, Phone number ID, Webhook verify token
+(default `meltice_whatsapp_2026`), optional App secret and Graph API version. Two functions, each with a test button
+and a REST endpoint (admin token or session):
+
+```
+POST /api/v1/whatsapp/send-text/   {"to_number": "971507864838", "subject": "Meltice Technology",
+                                    "customer_name": "Customer", "text_name": "Your daily report is ready."}
+POST /api/v1/whatsapp/send-media/  {"to_number": "971507864838", "customer_name": "Customer", "file_type": "image",
+                                    "file_url": "https://yourdomain.com/certificate.jpg", "message": "Your certificate is ready."}
+```
+(`/api/v1/whatsapp/send-certificate/` is the same as send-media.) Webhook for delivery statuses and replies:
+`https://<site>/whatsapp/webhook/` with the verify token above, field **messages**. Every message and status is listed
+under the WhatsApp card.
+
 ## Driver score sheet
 
 **Driver score** (`/drivers/`) rates how each vehicle and each Car view driver drove over a date range, from 0 to 100,

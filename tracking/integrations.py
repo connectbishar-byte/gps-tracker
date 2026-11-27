@@ -42,6 +42,9 @@ FIELDS = {
     "whatsapp_meta_phone_id": ("Meta phone number ID", "WHATSAPP_META_PHONE_ID", False),
     "whatsapp_meta_template": ("Meta template name", "WHATSAPP_META_TEMPLATE", False),
     "whatsapp_meta_lang": ("Meta template language", "WHATSAPP_META_LANG", False),
+    "whatsapp_meta_verify_token": ("Webhook verify token", "WHATSAPP_VERIFY_TOKEN", False),
+    "whatsapp_meta_app_secret": ("Meta app secret", "WHATSAPP_APP_SECRET", True),
+    "whatsapp_meta_api_version": ("Graph API version", "WHATSAPP_META_API_VERSION", False),
     "whatsapp_twilio_sid": ("Twilio Account SID", "TWILIO_ACCOUNT_SID", False),
     "whatsapp_twilio_token": ("Twilio auth token", "TWILIO_AUTH_TOKEN", True),
     "whatsapp_twilio_from": ("Twilio WhatsApp sender", "TWILIO_WHATSAPP_FROM", False),
@@ -49,7 +52,7 @@ FIELDS = {
 }
 # fields that belong to the WhatsApp card, not the Integrations card
 WHATSAPP_FIELDS = [n for n in FIELDS if n.startswith("whatsapp_")]
-CACHE_KEY = "integrations:v2"
+CACHE_KEY = "integrations:v3"
 CACHE_SECONDS = 60
 
 

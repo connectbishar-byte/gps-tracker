@@ -182,6 +182,16 @@ PAGES = {
                  "The Crossings tab shows every enter / leave and whether the WhatsApp message went out."],
         "ask": ["How do I get WhatsApp alerts?", "Why didn't I get an alert?", "How do I draw a zone?"],
     },
+    "alerts": {
+        "title": "Alerts",
+        "about": "The alert rule engine: each rule says when to alert (zone enter / leave, over speed, idling too long, "
+                 "crash, harsh driving, ignition), for which vehicles, and who gets the WhatsApp message.",
+        "tips": ["New rule → pick what to watch, set the limit, tick WhatsApp and enter the numbers (blank = default numbers).",
+                 "Test sends a sample of the rule's message right now.",
+                 "The Alert log tab shows every alert and whether it was delivered.",
+                 "Crash and harsh driving need those features enabled on the tracker in the Teltonika Configurator."],
+        "ask": ["How do I get an alert when the Jeep goes over 120?", "Why didn't my alert arrive?"],
+    },
     "drivers": {
         "title": "Driver score",
         "about": "A score from 0 to 100 for each vehicle and Car view driver, from harsh acceleration, braking and "
@@ -379,11 +389,13 @@ def diagnostics(user=None, client: dict | None = None) -> list[dict]:
     try:
         from . import whatsapp
         from .models import Geofence, GeofenceEvent
-        alerting = Geofence.objects.filter(active=True).exclude(alert_enter=False, alert_exit=False).exists()
+        from .models import AlertRule
+        alerting = (Geofence.objects.filter(active=True).exclude(alert_enter=False, alert_exit=False).exists()
+                    or any("whatsapp" in (r.channels or []) for r in AlertRule.objects.filter(active=True)))
         wa = whatsapp.status()
         if alerting and not wa["ready"]:
-            add("warn", "Geofence alerts can't be sent",
-                "At least one zone asks for a WhatsApp alert, but WhatsApp is "
+            add("warn", "WhatsApp alerts can't be sent",
+                "At least one zone or alert rule sends WhatsApp, but WhatsApp is "
                 + ("off." if not wa["provider"] else "missing " + ", ".join(wa["missing"]) + "."),
                 "Fill in Settings → WhatsApp alerts and press Send test message.", "/settings/#whatsapp")
         failed = GeofenceEvent.objects.filter(alert_status="failed", created_utc__gte=now - timedelta(days=1)).first()

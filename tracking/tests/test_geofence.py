@@ -18,6 +18,20 @@ OUTSIDE = (24.4900, 54.3700)
 JUST_OUT = (24.4700 + 1020 / 111320, 54.3400)  # 20 m past a 1000 m edge
 
 
+class FakeResp:
+    def __init__(self, status, body):
+        self.status, self.body = status, json.dumps(body).encode()
+
+    def read(self, n=-1):
+        return self.body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
 def fleet(**kw):
     return override_settings(FLEET={**settings.FLEET, "GEOFENCE_SYNC_ALERTS": True, **kw})
 
@@ -142,10 +156,10 @@ class WhatsAppTests(TestCase):
         integrations.save("whatsapp_recipients", "+971501234567")
         seen = {}
 
-        def fake(req):
+        def fake(req, timeout=None):
             seen["url"], seen["body"] = req.full_url, json.loads(req.data)
-            return True, '{"messages":[{"id":"x"}]}'
-        with mock.patch.object(whatsapp, "_http", side_effect=fake):
+            return FakeResp(200, {"messages": [{"id": "wamid.x"}]})
+        with mock.patch("urllib.request.urlopen", side_effect=fake):
             res = whatsapp.send("Jeep entered Office\nat 10:00")
         self.assertTrue(res["ok"])
         self.assertIn("/1112223334/messages", seen["url"])

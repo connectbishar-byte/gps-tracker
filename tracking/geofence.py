@@ -26,6 +26,7 @@ from django.conf import settings
 from django.db import close_old_connections, transaction
 from django.utils import timezone
 
+from . import rules
 from .models import Device, Geofence, GeofenceEvent, GeofenceState
 
 log = logging.getLogger("fleet.geofence")
@@ -145,7 +146,7 @@ def process_fixes(device_id: int, fixes: list[tuple]) -> list[int]:
             return []
         fixes = sorted(fixes, key=lambda f: f[0])
         hyst = float(_cfg("GEOFENCE_HYSTERESIS_M", 30))
-        created, pending = [], []
+        created, pending, rule_pending = [], [], []
         with transaction.atomic():
             states = {s.geofence_id: s for s in GeofenceState.objects.select_for_update().filter(
                 device_id=device_id, geofence__in=fences)}
@@ -171,9 +172,12 @@ def process_fixes(device_id: int, fixes: list[tuple]) -> list[int]:
                         created.append(ev.pk)
                         if ev.alert_status == "pending":
                             pending.append(ev.pk)
+                        rules.on_geofence(ev, rule_pending)
                     st.save()
             if pending:
                 transaction.on_commit(lambda: _dispatch(pending))
+            if rule_pending:
+                transaction.on_commit(lambda: rules.dispatch(rule_pending))
         return created
     except Exception:  # pragma: no cover - geofencing must never break ingest
         log.exception("geofence check failed for device %s", device_id)

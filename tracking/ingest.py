@@ -16,7 +16,7 @@ from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
 
-from . import codec, geofence, io_dictionary as iod
+from . import codec, geofence, io_dictionary as iod, rules
 from .models import AVLRecord, Connection, Device, IOValue, PortEvent, RawPacket
 
 log = logging.getLogger("fleet.ingest")
@@ -122,6 +122,7 @@ def ingest_frame(conn_id: int, device_id: int, imei: str, frame: bytes) -> Inges
         new = dup = 0
         newest_ts = device.last_record_ts
         fixes = []  # new valid positions, for the geofence check after commit
+        rule_recs = []  # every new record, for the alert rules (speed, idle, crash, harsh, ignition)
         for idx, rec in enumerate(pkt.records):
             fp = rec.fingerprint(imei)
             if AVLRecord.objects.filter(device=device, fingerprint=fp).exists():
@@ -151,6 +152,8 @@ def ingest_frame(conn_id: int, device_id: int, imei: str, frame: bytes) -> Inges
             new += 1
             if valid:
                 fixes.append((ts, rec.latitude, rec.longitude, rec.speed))
+            rule_recs.append({"ts": ts, "lat": rec.latitude, "lon": rec.longitude, "speed": rec.speed, "valid": valid,
+                              "io": io_by_id, "event": rec.event_io_id})
 
             # status only moves forward in time; a delayed record never overwrites a newer state
             if newest_ts is None or ts >= newest_ts:
@@ -186,6 +189,7 @@ def ingest_frame(conn_id: int, device_id: int, imei: str, frame: bytes) -> Inges
 
     # enter / leave checks for geofences (separate transaction; never raises, alerts go out in the background)
     geofence.process_fixes(device.pk, fixes)
+    rules.process(device.pk, rule_recs)
 
     summary = (f"Codec {pkt.codec_name} · {len(pkt.records)} record(s), {new} new, {dup} duplicate · "
                f"CRC {pkt.crc & 0xFFFF:04X} OK")

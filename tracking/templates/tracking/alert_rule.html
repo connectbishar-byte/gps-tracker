@@ -1,0 +1,77 @@
+{% extends "tracking/base.html" %}
+{% block title %}{% if rule %}{{ rule.name }}{% else %}New alert rule{% endif %} · {{ FLEET.SITE_NAME }}{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center gap-2 mb-3">
+  <a href="{% url 'alerts' %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i></a>
+  <h5 class="m-0">{% if rule %}Edit rule{% else %}New alert rule{% endif %}</h5>
+</div>
+<form method="post" class="card" id="ruleForm">{% csrf_token %}
+  <div class="card-body">
+    {% if form.non_field_errors %}<div class="alert alert-danger py-2">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <h6 class="text-uppercase small text-body-secondary">When</h6>
+        <div class="row g-2 mb-2">
+          <div class="col-sm-7"><label class="form-label small mb-1" for="{{ form.name.id_for_label }}">Rule name</label>{{ form.name }}{{ form.name.errors }}</div>
+          <div class="col-sm-5"><label class="form-label small mb-1" for="{{ form.kind.id_for_label }}">Alert when a vehicle…</label>{{ form.kind }}</div>
+        </div>
+        <div class="rf rf-geofence_enter rf-geofence_exit mb-2"><label class="form-label small mb-1" for="{{ form.geofence.id_for_label }}">Zone</label>{{ form.geofence }}
+          <div class="form-text small">Zones are drawn on the <a href="{% url 'geofences' %}">Geofences</a> page.</div></div>
+        <div class="row g-2 mb-2">
+          <div class="col-sm-6 rf rf-overspeed"><label class="form-label small mb-1" for="{{ form.speed_limit.id_for_label }}">Speed limit (km/h)</label>{{ form.speed_limit }}{{ form.speed_limit.errors }}</div>
+          <div class="col-sm-6 rf rf-overspeed rf-idle"><label class="form-label small mb-1" for="{{ form.duration_min.id_for_label }}"><span class="rf rf-overspeed">For at least (minutes, 0 = at once)</span><span class="rf rf-idle">Idle for (minutes)</span></label>{{ form.duration_min }}{{ form.duration_min.errors }}</div>
+        </div>
+        <div class="form-text small mb-2" id="kindHelp"></div>
+        <label class="form-label small mb-1">Vehicles <span class="text-body-secondary">(none ticked = all)</span></label>
+        <div class="rule-checks mb-2">{% for c in form.devices %}<div class="form-check">{{ c.tag }}<label class="form-check-label small" for="{{ c.id_for_label }}">{{ c.choice_label }}</label></div>{% empty %}<span class="small text-body-secondary">No vehicles.</span>{% endfor %}</div>
+        <div class="form-check form-switch">{{ form.active }}<label class="form-check-label small" for="{{ form.active.id_for_label }}">Rule is active</label></div>
+      </div>
+      <div class="col-lg-6">
+        <h6 class="text-uppercase small text-body-secondary">Who and how</h6>
+        <label class="form-label small mb-1">Channels</label>
+        <div class="d-flex gap-3 mb-2">{% for c in form.channels %}<div class="form-check">{{ c.tag }}<label class="form-check-label small" for="{{ c.id_for_label }}">{{ c.choice_label }}</label></div>{% endfor %}</div>
+        {% if not wa.ready %}<div class="small text-warning-emphasis mb-2"><i class="bi bi-exclamation-triangle"></i> WhatsApp is not set up yet: <a href="{% url 'settings' %}#whatsapp">Settings → WhatsApp alerts</a>.</div>{% endif %}
+        <label class="form-label small mb-1" for="{{ form.recipients.id_for_label }}">Send to (numbers)</label>{{ form.recipients }}{{ form.recipients.errors }}
+        <div class="form-text small mb-2">One per line, international format (+971…). Blank = the default numbers on Settings.</div>
+        <label class="form-label small mb-1" for="{{ form.message.id_for_label }}">Message</label>{{ form.message }}
+        <div class="form-text small mb-2">Blank = <span id="defaultText" class="font-monospace"></span><br>You can use
+          {% for p in placeholders %}<code>{{ "{" }}{{ p }}{{ "}" }}</code>{% if not forloop.last %} {% endif %}{% endfor %}.</div>
+        <div class="row g-2"><div class="col-sm-6"><label class="form-label small mb-1" for="{{ form.cooldown_min.id_for_label }}">At most one alert per vehicle every (minutes)</label>{{ form.cooldown_min }}</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="card-footer d-flex gap-2">
+    <button class="btn btn-primary btn-sm"><i class="bi bi-check2"></i> Save rule</button>
+    <a class="btn btn-outline-secondary btn-sm" href="{% url 'alerts' %}">Cancel</a>
+  </div>
+</form>
+{% if rule %}<form method="post" action="{% url 'alert_rule_delete' rule.pk %}" class="mt-2 text-end" onsubmit="return confirm('Delete this rule? Its alert log stays.')">{% csrf_token %}
+  <button class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i> Delete rule</button></form>{% endif %}
+{{ defaults|json_script:"rule-defaults" }}
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const defaults = JSON.parse(document.getElementById("rule-defaults").textContent);
+  const kind = document.getElementById("{{ form.kind.id_for_label }}");
+  const help = {
+    geofence_enter: "Sends when a vehicle drives into the zone. Drawing a zone around a vehicle that is already inside does not alert.",
+    geofence_exit: "Sends when a vehicle leaves the zone (30 m past its edge, so GPS jitter doesn't trigger it).",
+    overspeed: "Uses GPS speed. One alert per over-speed episode; it ends when the speed drops 3 km/h below the limit.",
+    idle: "Ignition on and not moving. One alert per stop, once it has lasted this long.",
+    crash: "Needs Crash detection enabled on the tracker (Teltonika Configurator → Features → Crash detection, AVL 247).",
+    harsh: "Harsh acceleration, braking or cornering. Needs Green driving / Eco driving enabled on the tracker (AVL 253).",
+    ignition_on: "Sends when the ignition turns on (AVL 239).", ignition_off: "Sends when the ignition turns off (AVL 239).",
+  };
+  function sync() {
+    const k = kind.value;
+    document.querySelectorAll(".rf").forEach(el => { el.hidden = !el.classList.contains("rf-" + k); });
+    document.getElementById("kindHelp").textContent = help[k] || "";
+    document.getElementById("defaultText").textContent = defaults[k] || "";
+    const name = document.getElementById("{{ form.name.id_for_label }}");
+    if (!name.value) name.placeholder = kind.options[kind.selectedIndex].text;
+  }
+  kind.addEventListener("change", sync); sync();
+})();
+</script>
+{% endblock %}

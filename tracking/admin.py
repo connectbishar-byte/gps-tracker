@@ -1,7 +1,7 @@
 from django.contrib import admin
 
-from .models import (AVLRecord, Connection, Device, Geofence, GeofenceEvent, IOValue, PortEvent, RawPacket,
-                     ReceiverHeartbeat, TestRun)
+from .models import (AlertEvent, AlertRule, AVLRecord, Connection, Device, Geofence, GeofenceEvent, IOValue, PortEvent, RawPacket,
+                     ReceiverHeartbeat, TestRun, WhatsAppMessage)
 
 
 @admin.register(Device)
@@ -59,3 +59,24 @@ class GeofenceEventAdmin(admin.ModelAdmin):
     list_display = ("timestamp_utc", "device", "kind", "geofence_name", "speed", "alert_status")
     list_filter = ("kind", "alert_status")
     readonly_fields = [f.name for f in GeofenceEvent._meta.fields]
+
+
+@admin.register(AlertRule)
+class AlertRuleAdmin(admin.ModelAdmin):
+    list_display = ("name", "kind", "active", "speed_limit", "duration_s", "cooldown_min")
+    list_filter = ("kind", "active")
+    filter_horizontal = ("devices",)
+
+
+@admin.register(AlertEvent)
+class AlertEventAdmin(admin.ModelAdmin):
+    list_display = ("timestamp_utc", "device", "rule_name", "kind", "status")
+    list_filter = ("kind", "status")
+    readonly_fields = [f.name for f in AlertEvent._meta.fields]
+
+
+@admin.register(WhatsAppMessage)
+class WhatsAppMessageAdmin(admin.ModelAdmin):
+    list_display = ("created_utc", "direction", "source", "number", "kind", "status", "detail")
+    list_filter = ("direction", "status", "source")
+    readonly_fields = [f.name for f in WhatsAppMessage._meta.fields]
