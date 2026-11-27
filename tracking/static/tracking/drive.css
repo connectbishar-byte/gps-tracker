@@ -147,3 +147,9 @@
 .dv.popmode .dv-pop { align-items: stretch; }
 .dv.popmode .dv-pop-box { height: auto; max-width: none; border-radius: 18px 18px 0 0; margin-top: calc(env(safe-area-inset-top) + 8px); }
 .dv .leaflet-top.leaflet-left { top: calc(env(safe-area-inset-top) + 60px); }
+
+/* Focus mode: just the map, speed, place and Start/Stop (for iPhone, where web pages can't go full screen) */
+.dv-focus-exit { display: none; position: absolute; z-index: 600; top: calc(env(safe-area-inset-top) + 8px); right: calc(env(safe-area-inset-right) + 10px); }
+.dv.focus .dv-focus-exit { display: inline-flex; }
+.dv.focus .dv-top, .dv.focus .dv-tiles, .dv.focus .dv-nav, .dv.focus .dv-handle, .dv.focus .leaflet-top { display: none; }
+.dv.focus .dv-maptools { top: calc(env(safe-area-inset-top) + 60px); }
