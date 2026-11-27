@@ -52,7 +52,7 @@ def config() -> dict:
         "provider": g("whatsapp_provider") if g("whatsapp_provider") in PROVIDERS else "",
         "recipients": g("whatsapp_recipients"),
         "meta_token": g("whatsapp_meta_token"), "meta_phone_id": g("whatsapp_meta_phone_id"),
-        "meta_template": g("whatsapp_meta_template"), "meta_lang": g("whatsapp_meta_lang") or "en",
+        "meta_template": g("whatsapp_meta_template"), "meta_lang": g("whatsapp_meta_lang") or "en_US",
         "meta_api_version": g("whatsapp_meta_api_version"),
         "twilio_sid": g("whatsapp_twilio_sid"), "twilio_token": g("whatsapp_twilio_token"),
         "twilio_from": g("whatsapp_twilio_from"),
@@ -297,7 +297,7 @@ def _send_meta(cfg, phone, text):
     to = phone.lstrip("+")
     if cfg["meta_template"]:
         payload = {"messaging_product": "whatsapp", "to": to, "type": "template", "template": {
-            "name": cfg["meta_template"], "language": {"code": cfg["meta_lang"] or "en"},
+            "name": cfg["meta_template"], "language": {"code": cfg["meta_lang"] or "en_US"},
             "components": [{"type": "body", "parameters": [{"type": "text", "text": _single_line(text)}]}]}}
         res, code = meta_post(payload, cfg, "alert")
     else:
