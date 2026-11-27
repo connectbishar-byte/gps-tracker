@@ -172,6 +172,16 @@ PAGES = {
                  "Import accepts files exported from here, to move places between systems."],
         "ask": ["How do I put these places on Google Maps?", "How do I save a place?"],
     },
+    "drivers": {
+        "title": "Driver score",
+        "about": "A score from 0 to 100 for each vehicle and Car view driver, from harsh acceleration, braking and "
+                 "cornering, over speeding, idling and crashes, with the trips behind it.",
+        "tips": ["Pick a date range, then open a row for the full score sheet with the breakdown per parameter.",
+                 "Excel, CSV and Print / PDF buttons export the sheet you are looking at.",
+                 "Harsh events need Green Driving turned on in the FMC130 configurator; otherwise they are estimated from GPS.",
+                 "Staff can change the weights, speed limit and rating bands under Scoring weights or on Settings."],
+        "ask": ["How is the driver score calculated?", "Why are there no harsh events?"],
+    },
     "records": {
         "title": "Records",
         "about": "Every decoded AVL record (position + I/O values) the trackers have sent, newest first.",

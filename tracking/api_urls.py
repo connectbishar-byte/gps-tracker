@@ -1,7 +1,7 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from . import api, places
+from . import api, driverscore, places
 
 router = DefaultRouter()
 router.register("devices", api.DeviceViewSet, basename="device")
@@ -16,4 +16,6 @@ urlpatterns = [
     path("auth/me/", api.me, name="api_me"),
     path("port-events/", api.port_events, name="api_port_events"),
     path("receiver/", api.receiver, name="api_v1_receiver"),
+    path("driver-scores/", driverscore.api_scores, name="api_driver_scores"),
+    path("driver-scores/<str:kind>/<int:pk>/", driverscore.api_sheet, name="api_driver_sheet"),
 ] + router.urls

@@ -226,6 +226,28 @@ the receiver, power the device and watch the terminal; it is registered automati
 CSV (My Maps or Excel) or GeoJSON; **Import** a KML / CSV / GeoJSON file back in. Users see their own places,
 staff see everyone's. REST API: `/api/v1/places/`.
 
+## Driver score sheet
+
+**Driver score** (`/drivers/`) rates how each vehicle and each Car view driver drove over a date range, from 0 to 100,
+with Good / Fair / Aggressive bands. Open a row for the full **score sheet**: overall score, the breakdown per
+parameter (what was measured, the rate, the weight and the points lost) and every trip with its own score.
+**Excel** (.xlsx with Score sheet, Trips and Scoring settings tabs), **CSV** and **Print / PDF** on every page.
+
+| Parameter | Where it comes from (FMC130) | Scored as |
+|---|---|---|
+| Harsh acceleration / braking / cornering | Green Driving events, AVL 253 (1 / 2 / 3); if the tracker sends none, estimated from GPS speed and heading between records ≤ 3 s apart | points per event per 100 km |
+| Over speeding | GPS speed of each record above the speed limit | points per % of driving time |
+| Idling | ignition on (AVL 239) and speed ≤ 3 km/h | points per % of engine-on time above an allowance |
+| Crashes | Crash Detection, AVL 247 | points per event |
+| Trips | ignition on → off; without ignition, movement split on stops > 5 min | |
+| Driver ID | iButton, AVL 78, shown per trip | |
+
+Score = 100 − all points lost. Staff change the weights, speed limit, idling allowance, the thresholds for estimated
+harsh events and the rating bands on **Settings → Driver score** (or *Scoring weights* on the page). For real harsh
+events turn on **Green Driving** in the FMC130 configurator. REST API: `/api/v1/driver-scores/`.
+
+![Driver scores](docs/screenshots/driver-scores.png)
+
 ## REST API
 
 Interactive docs: **`/api/docs/`** (Swagger, sign in first) and `/api/redoc/`. Full guide: `docs/API.md`.

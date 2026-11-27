@@ -1,0 +1,66 @@
+{% extends "tracking/base.html" %}
+{% load static fleet_extras %}
+{% block title %}Driver scores · {{ FLEET.SITE_NAME }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="{% static 'tracking/drivers.css' %}?v={{ ASSET_V }}">{% endblock %}
+{% block content %}
+<div class="ds-print-head mb-2"><strong>{{ FLEET.SITE_NAME }}</strong> · Driver scores · {{ d_from|date:"d M Y" }} to {{ d_to|date:"d M Y" }}</div>
+<div class="d-flex flex-wrap gap-3 align-items-end justify-content-between mb-3">
+  <div>
+    <h5 class="mb-1"><i class="bi bi-speedometer2"></i> Driver scores</h5>
+    <div class="small text-body-secondary">How safely each vehicle and Car view driver drove from {{ d_from|date:"d M Y" }} to {{ d_to|date:"d M Y" }}. Open a row for its full score sheet.</div>
+  </div>
+  {% include "tracking/_ds_export.html" %}
+</div>
+<div class="card mb-3 no-print"><div class="card-body py-2">{% include "tracking/_ds_range.html" %}</div></div>
+
+<div class="row g-2 mb-3">
+  <div class="col-6 col-md-3"><div class="ds-kpi"><div class="l">Fleet average</div>
+    <div class="v">{% if fleet_avg is not None %}<span class="ds-score {{ fleet_rating }}">{{ fleet_avg }}</span>{% else %}—{% endif %}</div></div></div>
+  <div class="col-6 col-md-3"><div class="ds-kpi"><div class="l">Good (≥ {{ cfg.good_min }})</div><div class="v ds-rating good">{{ counts.good }}</div></div></div>
+  <div class="col-6 col-md-3"><div class="ds-kpi"><div class="l">Fair ({{ cfg.fair_min }}–{{ cfg.good_min|add:"-1" }})</div><div class="v ds-rating fair">{{ counts.fair }}</div></div></div>
+  <div class="col-6 col-md-3"><div class="ds-kpi"><div class="l">Aggressive (&lt; {{ cfg.fair_min }})</div><div class="v ds-rating aggressive">{{ counts.aggressive }}</div></div></div>
+</div>
+
+<div class="card mb-3">
+  <div class="table-responsive"><table class="table table-sm table-hover mb-0 ds-table">
+    <thead class="table-light"><tr>
+      <th>#</th><th>Driver / vehicle</th><th class="text-end">Score</th><th>Rating</th><th class="text-end">Trips</th><th class="text-end">Distance</th>
+      <th class="text-end">Driving</th><th class="text-end" title="Harsh acceleration / braking / cornering">Harsh A / B / T</th>
+      <th class="text-end">Over speed</th><th class="text-end">Idling</th><th class="text-end">Crashes</th><th class="text-end">Max</th>
+    </tr></thead>
+    <tbody>
+    {% for s in rows %}{% with t=s.total r=s.result %}
+      <tr>
+        <td class="text-body-secondary">{{ forloop.counter }}</td>
+        <td><a href="{% if s.kind == 'vehicle' %}{% url 'driver_sheet' 'vehicle' s.subject.pk %}{% else %}{% url 'driver_sheet' 'user' s.subject.pk %}{% endif %}?{{ qs }}">{{ s.title }}</a>
+          <div class="small text-body-secondary">{% if s.kind == 'vehicle' %}<i class="bi bi-truck"></i> Vehicle tracker{% else %}<i class="bi bi-phone"></i> Car view driver{% endif %}{% if s.notes.drivers %} · iButton {{ s.notes.drivers|join:", " }}{% endif %}</div></td>
+        <td class="text-end">{% if r.score is not None %}<span class="ds-score {{ r.rating }}">{{ r.score }}</span>{% else %}<span class="text-body-secondary">—</span>{% endif %}</td>
+        <td><span class="ds-rating {{ r.rating }}">{{ r.rating_label }}</span></td>
+        <td class="text-end">{{ t.trips }}</td>
+        <td class="text-end">{{ t.km|floatformat:1 }} km</td>
+        <td class="text-end">{{ t.moving_s|dur }}</td>
+        <td class="text-end">{{ t.harsh_accel }} / {{ t.harsh_brake }} / {{ t.harsh_turn }}</td>
+        <td class="text-end">{{ r.overspeed_pct|floatformat:1 }} %</td>
+        <td class="text-end">{% if r.idle_pct is not None %}{{ r.idle_pct|floatformat:1 }} %{% else %}—{% endif %}</td>
+        <td class="text-end {% if t.crashes %}text-danger fw-bold{% endif %}">{{ t.crashes }}</td>
+        <td class="text-end">{{ t.max_kmh|floatformat:0 }} km/h</td>
+      </tr>
+    {% endwith %}{% empty %}
+      <tr><td colspan="12" class="text-center text-body-secondary py-4">No vehicles or Car view drives yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  <div class="card-footer small text-body-secondary">Harsh events come from the tracker's Green Driving events (AVL 253) when it sends them, otherwise they are estimated from GPS speed. Over speeding is time above {{ cfg.speed_limit_kmh }} km/h; idling is engine on while standing still.</div>
+</div>
+
+{% if user.is_staff %}
+<div class="card no-print" id="driverscore">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-sliders"></i> Scoring weights</span>
+    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#dsCfg" type="button">Change</button>
+  </div>
+  <div class="collapse" id="dsCfg"><div class="card-body">{% include "tracking/_driverscore_form.html" with next=request.get_full_path %}</div></div>
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}{% include "tracking/_ds_print.html" %}{% endblock %}

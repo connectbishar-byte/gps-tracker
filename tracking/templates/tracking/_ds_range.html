@@ -1,0 +1,10 @@
+<form class="d-flex flex-wrap gap-2 align-items-end no-print" method="get">
+  <div><label class="form-label small mb-0" for="dsFrom">From</label>
+    <input type="date" class="form-control form-control-sm" id="dsFrom" name="from" value="{{ d_from|date:'Y-m-d' }}"></div>
+  <div><label class="form-label small mb-0" for="dsTo">To</label>
+    <input type="date" class="form-control form-control-sm" id="dsTo" name="to" value="{{ d_to|date:'Y-m-d' }}"></div>
+  <button class="btn btn-primary btn-sm"><i class="bi bi-arrow-repeat"></i> Show</button>
+  <div class="btn-group btn-group-sm">
+    {% for label, a, b in presets %}<a class="btn btn-outline-secondary" href="?from={{ a|date:'Y-m-d' }}&to={{ b|date:'Y-m-d' }}">{{ label }}</a>{% endfor %}
+  </div>
+</form>

@@ -54,6 +54,8 @@ A user has one token until it is revoked. Signing out of the web UI does not rev
 | `GET /connections/` | TCP connections including rejected / invalid handshakes | `handshake`, `limit`, `offset` |
 | `GET /port-events/` | the port terminal stream (raw-data role), see below | `after`, `before`, `tail`, `limit`, `kind`, `imei`, `remote`, `q` |
 | `GET /receiver/` | receiver heartbeat: up, active connections, frames ok/bad, public endpoint | |
+| `GET /driver-scores/` | driver score for every vehicle and Car view driver, with the per-parameter breakdown | `from`, `to` (`YYYY-MM-DD`, local dates, inclusive; default last 7 days; max 92 days) |
+| `GET /driver-scores/vehicle/{id}/` · `GET /driver-scores/user/{id}/` | one score sheet with every trip | `from`, `to` |
 | `GET /tests/` | connectivity self-test results | |
 | `POST /tests/run/` | run the 13-step protocol self-test (staff): `{"host": "127.0.0.1", "port": 5027, "mode": "full"}` | |
 
