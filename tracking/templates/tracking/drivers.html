@@ -33,7 +33,7 @@
       <tr>
         <td class="text-body-secondary">{{ forloop.counter }}</td>
         <td><a href="{% if s.kind == 'vehicle' %}{% url 'driver_sheet' 'vehicle' s.subject.pk %}{% else %}{% url 'driver_sheet' 'user' s.subject.pk %}{% endif %}?{{ qs }}">{{ s.title }}</a>
-          <div class="small text-body-secondary">{% if s.kind == 'vehicle' %}<i class="bi bi-truck"></i> Vehicle tracker{% else %}<i class="bi bi-phone"></i> Car view driver{% endif %}{% if s.notes.drivers %} · iButton {{ s.notes.drivers|join:", " }}{% endif %}</div></td>
+          <div class="small text-body-secondary">{% if s.kind == 'vehicle' %}<i class="bi bi-truck"></i> Vehicle tracker{% else %}<i class="bi bi-phone"></i> Car view driver{% endif %}{% if s.notes.drivers %} · iButton {{ s.notes.drivers|join:", " }}{% endif %}{% if s.kind == 'vehicle' %} · <a href="{% url 'vehicle_dashboard' s.subject.pk %}?{{ qs }}">dashboard</a>{% endif %}</div></td>
         <td class="text-end">{% if r.score is not None %}<span class="ds-score {{ r.rating }}">{{ r.score }}</span>{% else %}<span class="text-body-secondary">—</span>{% endif %}</td>
         <td><span class="ds-rating {{ r.rating }}">{{ r.rating_label }}</span></td>
         <td class="text-end">{{ t.trips }}</td>

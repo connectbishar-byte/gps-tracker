@@ -182,6 +182,16 @@ PAGES = {
                  "Staff can change the weights, speed limit and rating bands under Scoring weights or on Settings."],
         "ask": ["How is the driver score calculated?", "Why are there no harsh events?"],
     },
+    "vehicle": {
+        "title": "Vehicle dashboard",
+        "about": "One vehicle at a glance: distance per day, the driver score day by day and its breakdown, driving "
+                 "and idling time, speed profile, when it drives, its drivers and every trip.",
+        "tips": ["Pick a date range or a preset (Today, 7 days, 30 days); hover any bar or dot for the exact numbers.",
+                 "The play button on a trip replays it on Route history.",
+                 "Scores use the same weights as the Driver score page, so both always agree.",
+                 "Drivers show up when the tracker sends an iButton ID or someone saves a drive with this vehicle in Car view."],
+        "ask": ["Why is the daily distance zero?", "How is the driver score calculated?"],
+    },
     "records": {
         "title": "Records",
         "about": "Every decoded AVL record (position + I/O values) the trackers have sent, newest first.",

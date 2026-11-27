@@ -10,7 +10,7 @@
         <tbody>
         {% for r in rows %}
           <tr>
-            <td><a href="{% url 'device_detail' r.id %}">{{ r.name }}</a><div class="small text-muted">{{ r.group }}</div></td>
+            <td><a href="{% url 'device_detail' r.id %}">{{ r.name }}</a> <a class="small" href="{% url 'vehicle_dashboard' r.id %}" title="Vehicle dashboard"><i class="bi bi-bar-chart-line"></i></a><div class="small text-muted">{{ r.group }}</div></td>
             <td>{{ r.imei }}</td><td>{{ r.model }}</td><td>{{ r.obj.firmware|default:"—" }}</td>
             <td>{% if r.enabled %}<i class="bi bi-check-circle text-success"></i>{% else %}<i class="bi bi-slash-circle text-danger"></i>{% endif %}</td>
             <td class="link-{{ r.link }}">{{ r.link }}</td>

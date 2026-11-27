@@ -23,7 +23,7 @@
           <thead class="table-light"><tr><th>Vehicle</th><th>State</th><th>Link</th><th>Last packet</th><th>Last valid fix</th><th>Speed</th><th>Ignition</th><th>GSM</th><th>Ext V</th></tr></thead>
           <tbody id="healthBody">
           {% for d in devices %}
-            <tr><td><a href="{% url 'device_detail' d.id %}">{{ d.name }}</a></td><td colspan="8" class="text-muted">loading…</td></tr>
+            <tr><td><a href="{% url 'vehicle_dashboard' d.id %}">{{ d.name }}</a></td><td colspan="8" class="text-muted">loading…</td></tr>
           {% empty %}
             <tr><td colspan="9" class="text-center text-muted py-4">No devices registered. <a href="{% url 'devices' %}">Register an IMEI</a>.</td></tr>
           {% endfor %}
@@ -64,7 +64,7 @@
     const pts = [];
     for (const d of data.devices) {
       c[d.state]++; if (l[d.link] !== undefined) l[d.link]++;
-      rows.push(`<tr><td><a href="/devices/${d.id}/">${Fleet.esc(d.name)}</a><div class="small text-muted">${Fleet.esc(d.imei)}</div></td>
+      rows.push(`<tr><td><a href="/vehicles/${d.id}/" title="Vehicle dashboard">${Fleet.esc(d.name)}</a><div class="small text-muted">${Fleet.esc(d.imei)}</div></td>
         <td><span class="badge badge-state bg-${d.state}">${Fleet.stateLabel[d.state]}</span></td>
         <td class="link-${d.link}">${d.link}</td>
         <td title="${Fleet.fmt(d.last_packet)}">${Fleet.ago(d.last_packet)}</td>
