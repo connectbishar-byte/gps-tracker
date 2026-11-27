@@ -31,6 +31,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Car view">
 <link rel="manifest" href="{% static 'tracking/drive.webmanifest' %}">
+<link rel="apple-touch-icon" href="{% static 'tracking/icons/car-view-180.png' %}">
+<link rel="icon" type="image/png" sizes="192x192" href="{% static 'tracking/icons/car-view-192.png' %}">
 <title>Car view · {{ FLEET.SITE_NAME }}</title>
 <link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap.min.css' %}">
 <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
@@ -140,6 +142,39 @@
       </div>
     </div>
   </div>
+
+  <!-- Full screen on phones that can't do it from a web page (iPhone): install to the home screen -->
+  <div class="dv-modal" id="dfsbox" hidden>
+    <div class="dv-dialog">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h2 class="h5 m-0"><i class="bi bi-fullscreen"></i> Full screen</h2>
+        <button class="btn-close" data-close aria-label="Close"></button>
+      </div>
+      <div id="dfsios" hidden>
+        <p class="small mb-2">iPhone doesn't allow full screen from inside Safari. Add Car view to your home screen once, and it opens full screen with no Safari bars:</p>
+        <ol class="small ps-3 mb-3">
+          <li class="mb-1">Tap the <b>Share</b> button <i class="bi bi-box-arrow-up"></i> at the bottom of Safari (in Chrome on iPhone: tap <i class="bi bi-box-arrow-up"></i> next to the address).</li>
+          <li class="mb-1">Scroll down and tap <b>Add to Home Screen</b> <i class="bi bi-plus-square"></i>.</li>
+          <li class="mb-1">Keep the name <b>Car view</b> and tap <b>Add</b>.</li>
+          <li>Open <b>Car view</b> from your home screen (sign in once if asked).</li>
+        </ol>
+      </div>
+      <div id="dfsandroid" hidden>
+        <p class="small mb-2">This browser didn't allow full screen. Install Car view as an app instead:</p>
+        <ol class="small ps-3 mb-3">
+          <li class="mb-1">Open the browser menu <b>⋮</b>.</li>
+          <li class="mb-1">Tap <b>Install app</b> or <b>Add to Home screen</b>.</li>
+          <li>Open <b>Car view</b> from your home screen.</li>
+        </ol>
+        <button class="btn btn-success btn-sm mb-3" id="dinstall" hidden><i class="bi bi-download"></i> Install Car view now</button>
+      </div>
+      <p class="small text-body-secondary mb-2">Until then, <b>Focus mode</b> hides the buttons and details so the map and speed fill the screen.</p>
+      <div class="d-flex gap-2">
+        <button class="btn btn-primary ms-auto" id="dfocusgo"><i class="bi bi-arrows-fullscreen"></i> Use focus mode</button>
+      </div>
+    </div>
+  </div>
+  <button class="dv-btn dv-focus-exit" id="dfocusexit" title="Leave focus mode" aria-label="Leave focus mode"><i class="bi bi-fullscreen-exit"></i></button>
 
   <div class="dv-toast" id="dtoast" hidden></div>
 </div>

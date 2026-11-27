@@ -570,15 +570,42 @@
   // ---------------------------------------------------------------- full screen + keep screen on
   const root = document.documentElement;
   const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
+  // Real full screen where the browser allows it (Android Chrome, desktop). iPhone Safari has no full screen
+  // for web pages, so there we explain Add to Home Screen (opens with no Safari bars) and offer focus mode.
+  const standalone = () => (window.matchMedia && (matchMedia("(display-mode: fullscreen)").matches ||
+    matchMedia("(display-mode: standalone)").matches)) || navigator.standalone === true;
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const canFs = !!(root.requestFullscreen || root.webkitRequestFullscreen) && document.fullscreenEnabled !== false;
+  let installEvt = null;
+  addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; $("dinstall").hidden = false; });
+  function setFocus(on) {
+    $("dv").classList.toggle("focus", on);
+    store.set("mgt-drive-focus", on);
+    setTimeout(() => { map.invalidateSize(); if (live && follow) centerOn([live.lat, live.lon]); }, 120);
+  }
+  function fsHelp() {
+    $("dfsios").hidden = !isIOS; $("dfsandroid").hidden = isIOS;
+    $("dfsbox").hidden = false;
+  }
   $("dfull").onclick = async () => {
-    try {
-      if (fsEl()) await (document.exitFullscreen || document.webkitExitFullscreen).call(document);
-      else if (root.requestFullscreen) await root.requestFullscreen({navigationUI: "hide"});
-      else if (root.webkitRequestFullscreen) root.webkitRequestFullscreen();
-      else toast("On iPhone: tap Share → Add to Home Screen, then open Car view from the home screen for full screen.", 8000);
-    } catch (e) { toast("Full screen isn't available here."); }
     wake(true);
+    if (standalone()) { setFocus(!$("dv").classList.contains("focus")); return; }   // already app-like: toggle focus
+    try {
+      if (fsEl()) { await (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
+      if (canFs && !isIOS) {
+        if (root.requestFullscreen) await root.requestFullscreen({navigationUI: "hide"});
+        else root.webkitRequestFullscreen();
+        try { if (screen.orientation && screen.orientation.lock) await screen.orientation.lock("any"); } catch (e) { /* not allowed */ }
+        return;
+      }
+    } catch (e) { /* refused: fall through to the help */ }
+    fsHelp();
   };
+  $("dfsbox").addEventListener("click", e => { if (e.target.closest("[data-close]") || e.target === $("dfsbox")) $("dfsbox").hidden = true; });
+  $("dfocusgo").onclick = () => { $("dfsbox").hidden = true; setFocus(true); };
+  $("dfocusexit").onclick = () => setFocus(false);
+  $("dinstall").onclick = async () => { if (installEvt) { installEvt.prompt(); installEvt = null; $("dinstall").hidden = true; $("dfsbox").hidden = true; } };
+  if (store.get("mgt-drive-focus", false)) setFocus(true);
   const onFs = () => {
     $("dfull").innerHTML = `<i class="bi ${fsEl() ? "bi-fullscreen-exit" : "bi-fullscreen"}"></i>`;
     setTimeout(() => map.invalidateSize(), 200);
