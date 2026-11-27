@@ -131,14 +131,16 @@ def api_geofence_events(request):
 # ---------------------------------------------------------------------------
 # Settings → WhatsApp alerts
 # ---------------------------------------------------------------------------
-SECRET = {"whatsapp_meta_token", "whatsapp_twilio_token", "whatsapp_callmebot_key"}
+SECRET = {"whatsapp_meta_token", "whatsapp_twilio_token", "whatsapp_callmebot_key", "whatsapp_meta_app_secret"}
 
 
 def settings_context() -> dict:
     rows = {r["name"]: r for r in integrations.status() if r["name"] in integrations.WHATSAPP_FIELDS}
     for name, r in rows.items():
         r["value"] = "" if r["secret"] else integrations.get(name)
-    return {"wa_fields": rows, "wa_providers": whatsapp.PROVIDERS, "wa_status": whatsapp.status()}
+    from .models import WhatsAppMessage
+    return {"wa_fields": rows, "wa_providers": whatsapp.PROVIDERS, "wa_status": whatsapp.status(),
+            "wa_verify_default": whatsapp.DEFAULT_VERIFY_TOKEN, "wa_messages": WhatsAppMessage.objects.all()[:25]}
 
 
 @login_required

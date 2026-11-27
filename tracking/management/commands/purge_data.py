@@ -21,7 +21,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from tracking import ingest
-from tracking.models import AVLRecord, Connection, Device, GeofenceEvent, IOValue, RawPacket
+from tracking.models import AlertEvent, AVLRecord, Connection, Device, GeofenceEvent, IOValue, RawPacket, WhatsAppMessage
 
 LAST_RUN_KEY = "purge:last"
 
@@ -74,12 +74,13 @@ class Command(BaseCommand):
             n["connections"] = _batched_delete(Connection.objects.filter(device=d, opened_utc__lt=cutoff,
                                                                          closed_utc__isnull=False), batch, dry)
             n["geofence"] = _batched_delete(GeofenceEvent.objects.filter(device=d, timestamp_utc__lt=cutoff), batch, dry)
+            n["geofence"] += _batched_delete(AlertEvent.objects.filter(device=d, timestamp_utc__lt=cutoff), batch, dry)
             for k, v in n.items():
                 summary[k] += v
             if any(n.values()):
                 self.stdout.write(f"{d.name}: keep {d.retention_days} days (before {cutoff:%Y-%m-%d %H:%M} UTC) - {verb} "
                                   f"{n['records']} records, {n['io']} parameter values, {n['packets']} raw packets, "
-                                  f"{n['connections']} connections, {n['geofence']} geofence crossings")
+                                  f"{n['connections']} connections, {n['geofence']} geofence crossings / alerts")
         if not o["device"]:
             cutoff = now - timedelta(days=settings.FLEET["DEFAULT_RETENTION_DAYS"])
             orphan_p = _batched_delete(RawPacket.objects.filter(device__isnull=True, received_utc__lt=cutoff), batch, dry)
@@ -89,6 +90,7 @@ class Command(BaseCommand):
             summary["connections"] += orphan_c
             if orphan_p or orphan_c:
                 self.stdout.write(f"No vehicle (rejected / unknown IMEIs): {verb} {orphan_p} raw packets, {orphan_c} connections")
+            _batched_delete(WhatsAppMessage.objects.filter(created_utc__lt=cutoff), batch, dry)
             if not dry:
                 summary["port_events"] = ingest.prune_events(settings.FLEET["PORT_LOG_RETENTION_HOURS"])
         line = (f"Purge {'(dry run) ' if dry else ''}done: {verb} {summary['records']} records, {summary['io']} parameter values, "

@@ -3,7 +3,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
-from tracking import driverscore, geofence_views, vehicledash, views
+from tracking import alerts_views, driverscore, geofence_views, vehicledash, views
 
 urlpatterns = [
     path("", views.dashboard, name="dashboard"),
@@ -25,6 +25,15 @@ urlpatterns = [
     path("settings/assistant/", views.settings_assistant, name="settings_assistant"),
     path("settings/whatsapp/", geofence_views.settings_whatsapp, name="settings_whatsapp"),
     path("settings/whatsapp/test/", geofence_views.settings_whatsapp_test, name="settings_whatsapp_test"),
+    path("settings/whatsapp/test-text/", alerts_views.settings_test_text, name="settings_whatsapp_test_text"),
+    path("settings/whatsapp/test-media/", alerts_views.settings_test_media, name="settings_whatsapp_test_media"),
+    path("whatsapp/webhook/", alerts_views.whatsapp_webhook, name="whatsapp_webhook"),
+    path("alerts/", alerts_views.alerts_page, name="alerts"),
+    path("alerts/new/", alerts_views.rule_edit, name="alert_rule_new"),
+    path("alerts/<int:pk>/", alerts_views.rule_edit, name="alert_rule_edit"),
+    path("alerts/<int:pk>/delete/", alerts_views.rule_delete, name="alert_rule_delete"),
+    path("alerts/<int:pk>/toggle/", alerts_views.rule_toggle, name="alert_rule_toggle"),
+    path("alerts/<int:pk>/test/", alerts_views.rule_test, name="alert_rule_test"),
     path("geofences/", geofence_views.geofences_page, name="geofences"),
     path("geofences/api/", geofence_views.api_geofences, name="api_geofences"),
     path("geofences/api/<int:pk>/", geofence_views.api_geofence_update, name="api_geofence_update"),

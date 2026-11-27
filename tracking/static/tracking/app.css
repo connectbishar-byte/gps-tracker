@@ -343,3 +343,5 @@ body.bot-bottom-right .map-toast { bottom: 110px; }
 body.embed .rail, body.embed .topbar, body.embed .bot-root { display: none !important; }
 body.embed .shell { margin-left: 0; }
 body.embed .live-wrap, body.embed .places-wrap { min-height: 100vh; }
+/* Alerts rule form */
+.rule-checks { max-height: 150px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; }

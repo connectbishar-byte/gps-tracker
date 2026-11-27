@@ -53,6 +53,7 @@ def config() -> dict:
         "recipients": g("whatsapp_recipients"),
         "meta_token": g("whatsapp_meta_token"), "meta_phone_id": g("whatsapp_meta_phone_id"),
         "meta_template": g("whatsapp_meta_template"), "meta_lang": g("whatsapp_meta_lang") or "en",
+        "meta_api_version": g("whatsapp_meta_api_version"),
         "twilio_sid": g("whatsapp_twilio_sid"), "twilio_token": g("whatsapp_twilio_token"),
         "twilio_from": g("whatsapp_twilio_from"),
         "callmebot_key": g("whatsapp_callmebot_key"),
@@ -141,20 +142,169 @@ def _single_line(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()[:1000]
 
 
+# ---------------------------------------------------------------------------
+# Meta WhatsApp Cloud API: the two functions (text alert, image / PDF with caption) and the webhook
+# ---------------------------------------------------------------------------
+DEFAULT_VERIFY_TOKEN = "meltice_whatsapp_2026"
+NUMBER_RE = re.compile(r"[1-9][0-9]{6,14}")
+
+
+def clean_number(value) -> str:
+    """'+971 50-786 4838' -> '971507864838' (Meta wants digits only, country code first)."""
+    n = re.sub(r"[\s+\-().]", "", str(value or ""))
+    return n[2:] if n.startswith("00") else n
+
+
+def verify_token() -> str:
+    return integrations.get("whatsapp_meta_verify_token") or DEFAULT_VERIFY_TOKEN
+
+
+def _meta_url(cfg) -> str:
+    version = (cfg.get("meta_api_version") or META_API_VERSION).strip() or META_API_VERSION
+    return f"https://graph.facebook.com/{version}/{urllib.parse.quote(cfg['meta_phone_id'])}/messages"
+
+
+def meta_post(payload: dict, cfg: dict | None = None, source: str = "", timeout: float = 30) -> tuple[dict, int]:
+    """POST one message to the Cloud API. Returns ({status, status_code, request_payload, meta_response, ...}, code)
+    like Bishar's sendCertificate(), and logs it to WhatsAppMessage."""
+    cfg = cfg or config()
+    if not cfg["meta_token"] or not cfg["meta_phone_id"]:
+        return {"status": "error", "message": "WhatsApp API credentials missing (Access token / Phone number ID)."}, 500
+    req = urllib.request.Request(_meta_url(cfg), data=json.dumps(payload).encode(), method="POST", headers={
+        "Authorization": f"Bearer {cfg['meta_token']}", "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            code, raw = r.status, r.read(20000).decode("utf-8", "replace")
+    except urllib.error.HTTPError as exc:
+        code, raw = exc.code, exc.read(20000).decode("utf-8", "replace")
+    except (urllib.error.URLError, TimeoutError, OSError):
+        _log("out", source, payload, "failed", 502, "Unable to connect to WhatsApp API")
+        return {"status": "error", "message": "Unable to connect to WhatsApp API"}, 502
+    try:
+        meta_response = json.loads(raw)
+    except ValueError:
+        meta_response = raw
+    ok = 200 <= code < 300
+    wamid = ""
+    if ok and isinstance(meta_response, dict):
+        wamid = ((meta_response.get("messages") or [{}])[0] or {}).get("id", "")
+    detail = "" if ok else (_error_text(raw) or f"HTTP {code}")
+    _log("out", source, payload, "accepted" if ok else "failed", code, detail, wamid)
+    result = {"status": "success" if ok else "error", "status_code": code, "request_payload": payload,
+              "meta_response": meta_response}
+    if not ok:
+        result["message"] = detail
+    return result, code
+
+
+def _log(direction, source, payload, status, code=None, detail="", wamid="", number="", kind=""):
+    try:
+        from .models import WhatsAppMessage
+        WhatsAppMessage.objects.create(
+            direction=direction, source=source[:12], number=(number or payload.get("to", ""))[:20],
+            kind=(kind or payload.get("type", ""))[:12], wamid=wamid[:200], status=status[:12], status_code=code,
+            detail=str(detail)[:500], payload=payload)
+    except Exception:  # noqa: BLE001 - logging must never break sending
+        log.exception("could not log WhatsApp message")
+
+
+def _greeting(customer_name: str, body: str) -> str:
+    return (f"Dear {customer_name},\n\n{body}" if customer_name else body).strip()
+
+
+def send_text(to_number, customer_name: str = "", subject: str = "", text: str = "", cfg=None,
+              source: str = "api") -> tuple[dict, int]:
+    """Text alert. Body is "*subject*" + "Dear customer," + text. WhatsApp delivers free text only within 24 h of the
+    customer's last message; outside that use a template (Settings → WhatsApp → template name)."""
+    to = clean_number(to_number)
+    if not NUMBER_RE.fullmatch(to):
+        return {"status": "error", "message": "Valid international mobile number required"}, 400
+    body = _greeting(customer_name, text)
+    if subject:
+        body = f"*{subject.strip()}*\n\n{body}"
+    if not body:
+        return {"status": "error", "message": "Message text required"}, 400
+    if len(body) > 4096:
+        return {"status": "error", "message": "Message exceeds 4096 characters"}, 400
+    payload = {"messaging_product": "whatsapp", "recipient_type": "individual", "to": to, "type": "text",
+               "text": {"preview_url": True, "body": body}}
+    return meta_post(payload, cfg, source)
+
+
+def send_media(to_number, customer_name: str = "", file_url: str = "", message: str = "", file_type: str = "image",
+               cfg=None, source: str = "api", filename: str = "") -> tuple[dict, int]:
+    """Image or PDF from a public https URL with a caption (Bishar's sendCertificate)."""
+    to = clean_number(to_number)
+    if not NUMBER_RE.fullmatch(to):
+        return {"status": "error", "message": "Valid international mobile number required"}, 400
+    file_url = str(file_url or "").strip()
+    if not file_url.startswith("https://"):
+        return {"status": "error", "message": "Public HTTPS file URL required"}, 400
+    caption = _greeting(customer_name, message)
+    if len(caption) > 1024:
+        return {"status": "error", "message": "Caption exceeds 1024 characters"}, 400
+    if file_type == "image":
+        payload = {"messaging_product": "whatsapp", "recipient_type": "individual", "to": to, "type": "image",
+                   "image": {"link": file_url, "caption": caption}}
+    elif file_type == "pdf":
+        name = filename or f"{(customer_name or 'Document').replace(' ', '_')}_Certificate.pdf"
+        payload = {"messaging_product": "whatsapp", "recipient_type": "individual", "to": to, "type": "document",
+                   "document": {"link": file_url, "filename": name, "caption": caption}}
+    else:
+        return {"status": "error", "message": "file_type must be image or pdf"}, 400
+    result, code = meta_post(payload, cfg, source)
+    result["file_type"] = file_type
+    return result, code
+
+
+def handle_webhook(body: dict) -> int:
+    """Store the delivery statuses and incoming messages Meta posts to the webhook. Returns how many were stored."""
+    n = 0
+    for entry in (body or {}).get("entry", []) or []:
+        for change in entry.get("changes", []) or []:
+            value = change.get("value") or {}
+            for st in value.get("statuses", []) or []:
+                errs = st.get("errors") or []
+                detail = "; ".join(f"{e.get('code')}: {e.get('title') or e.get('message', '')}"
+                                   f"{' - ' + (e.get('error_data') or {}).get('details', '') if (e.get('error_data') or {}).get('details') else ''}"
+                                   for e in errs)
+                if any(str(e.get("code")) == "131047" for e in errs):
+                    detail += (" (More than 24 h since the customer last wrote: use an approved template for "
+                               "messages outside that window.)")
+                _log("status", "webhook", {"status": st.get("status"), "id": st.get("id")}, str(st.get("status", "")),
+                     None, detail, st.get("id", ""), st.get("recipient_id", ""), "status")
+                n += 1
+            for m in value.get("messages", []) or []:
+                text = (m.get("text") or {}).get("body", "") or m.get("type", "")
+                _log("in", "webhook", {"type": m.get("type"), "text": text[:300]}, "received", None, text[:500],
+                     m.get("id", ""), m.get("from", ""), m.get("type", ""))
+                n += 1
+    return n
+
+
+def check_signature(raw: bytes, header: str) -> bool:
+    """X-Hub-Signature-256 check, only when an app secret is saved (otherwise accept)."""
+    import hashlib
+    import hmac
+    secret = integrations.get("whatsapp_meta_app_secret")
+    if not secret:
+        return True
+    expected = "sha256=" + hmac.new(secret.encode(), raw, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, header or "")
+
+
 def _send_meta(cfg, phone, text):
-    url = f"https://graph.facebook.com/{META_API_VERSION}/{urllib.parse.quote(cfg['meta_phone_id'])}/messages"
     to = phone.lstrip("+")
     if cfg["meta_template"]:
         payload = {"messaging_product": "whatsapp", "to": to, "type": "template", "template": {
             "name": cfg["meta_template"], "language": {"code": cfg["meta_lang"] or "en"},
             "components": [{"type": "body", "parameters": [{"type": "text", "text": _single_line(text)}]}]}}
+        res, code = meta_post(payload, cfg, "alert")
     else:
-        payload = {"messaging_product": "whatsapp", "to": to, "type": "text", "text": {"body": text[:4096]}}
-    req = urllib.request.Request(url, data=json.dumps(payload).encode(), method="POST", headers={
-        "Authorization": f"Bearer {cfg['meta_token']}", "Content-Type": "application/json"})
-    ok, body = _http(req)
-    if ok:
+        res, code = send_text(to, text=text, cfg=cfg, source="alert")
+    if res["status"] == "success":
         return True, "accepted by Meta"
+    body = res.get("message", f"HTTP {code}")
     if "131047" in body or "24 hours" in body or "re-engagement" in body.lower():
         body += (" WhatsApp only delivers plain messages within 24 h of the recipient's last message to your number."
                  " Enter an approved template name to send alerts at any time.")

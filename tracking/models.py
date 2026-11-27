@@ -331,3 +331,97 @@ class GeofenceEvent(models.Model):
     class Meta:
         ordering = ["-timestamp_utc", "-id"]
         indexes = [models.Index(fields=["device", "timestamp_utc"], name="gfevent_device_ts")]
+
+
+class WhatsAppMessage(models.Model):
+    """
+    Log of WhatsApp traffic through the Meta Cloud API: messages this site sent (text, image, PDF, template) and
+    the delivery statuses / replies Meta posts to the webhook (/whatsapp/webhook/). Shown on Settings → WhatsApp.
+    """
+    DIRECTIONS = [("out", "Sent"), ("status", "Delivery status"), ("in", "Received")]
+
+    created_utc = models.DateTimeField(default=timezone.now, db_index=True)
+    direction = models.CharField(max_length=6, choices=DIRECTIONS, default="out")
+    source = models.CharField(max_length=12, blank=True, help_text="test | api | alert | webhook")
+    number = models.CharField(max_length=20, blank=True)
+    kind = models.CharField(max_length=12, blank=True, help_text="text | image | document | template | status")
+    wamid = models.CharField(max_length=200, blank=True, db_index=True)
+    status = models.CharField(max_length=12, blank=True, help_text="accepted | failed | sent | delivered | read | received")
+    status_code = models.IntegerField(null=True, blank=True)
+    detail = models.CharField(max_length=500, blank=True)
+    payload = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["-created_utc", "-id"]
+
+
+class AlertRule(models.Model):
+    """
+    One line of the alert rule engine (Alerts page): *when* something happens to a vehicle (kind + its settings),
+    *who* is told (recipients) and *how* (channels: WhatsApp now, SMS later). Evaluated by tracking/rules.py.
+    """
+    KINDS = [
+        ("geofence_enter", "Enters a geofence"), ("geofence_exit", "Leaves a geofence"),
+        ("overspeed", "Over speed"), ("idle", "Idling too long"), ("crash", "Crash detected"),
+        ("harsh", "Harsh driving"), ("ignition_on", "Ignition on"), ("ignition_off", "Ignition off"),
+    ]
+    CHANNELS = [("whatsapp", "WhatsApp"), ("sms", "SMS (coming later)")]
+
+    name = models.CharField(max_length=100)
+    kind = models.CharField(max_length=20, choices=KINDS)
+    active = models.BooleanField(default=True)
+    devices = models.ManyToManyField(Device, blank=True, related_name="alert_rules",
+                                     help_text="None selected = every vehicle.")
+    geofence = models.ForeignKey(Geofence, null=True, blank=True, on_delete=models.CASCADE, related_name="rules",
+                                 help_text="Geofence rules: this zone only (blank = any zone).")
+    speed_limit = models.PositiveIntegerField(null=True, blank=True, help_text="Over speed: km/h")
+    duration_s = models.PositiveIntegerField(default=0, help_text="Over speed: for at least this long. Idle: idle for this long.")
+    channels = models.JSONField(default=list, blank=True)
+    recipients = models.TextField(blank=True, help_text="Numbers in international format (blank = the default "
+                                                        "WhatsApp numbers on Settings).")
+    message = models.TextField(blank=True, help_text="Message text; blank = a standard text for this kind.")
+    cooldown_min = models.PositiveIntegerField(default=10, help_text="At most one alert per vehicle in this many minutes.")
+    created_by = models.CharField(max_length=150, blank=True)
+    created_utc = models.DateTimeField(default=timezone.now)
+    updated_utc = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class AlertRuleState(models.Model):
+    """Running state of a rule for one vehicle (e.g. 'over the limit since 10:02', 'idle since 09:40')."""
+    rule = models.ForeignKey(AlertRule, on_delete=models.CASCADE, related_name="states")
+    device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name="alert_states")
+    active = models.BooleanField(default=False)
+    since_utc = models.DateTimeField(null=True, blank=True)
+    fired = models.BooleanField(default=False, help_text="Already alerted for the current episode")
+    peak = models.FloatField(null=True, blank=True)
+    last_ts = models.DateTimeField(null=True, blank=True)
+    last_fired_utc = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["rule", "device"], name="uniq_rule_device")]
+
+
+class AlertEvent(models.Model):
+    """One alert raised by a rule, with what happened to each channel."""
+    rule = models.ForeignKey(AlertRule, null=True, blank=True, on_delete=models.SET_NULL, related_name="events")
+    rule_name = models.CharField(max_length=100)
+    kind = models.CharField(max_length=20)
+    device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name="alert_events")
+    timestamp_utc = models.DateTimeField(db_index=True)
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+    speed = models.IntegerField(default=0)
+    text = models.TextField(blank=True)
+    status = models.CharField(max_length=8, default="pending")  # pending | sent | failed | skipped
+    detail = models.CharField(max_length=500, blank=True)
+    created_utc = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-timestamp_utc", "-id"]
+        indexes = [models.Index(fields=["device", "timestamp_utc"], name="alert_device_ts")]
