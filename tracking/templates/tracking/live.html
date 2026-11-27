@@ -20,7 +20,7 @@
     <aside class="vp-drawer" id="vpanel" hidden aria-label="Vehicle details"></aside>
     <div class="map-tools btn-group-vertical shadow-sm" style="top: 100px">
       <button class="btn btn-light btn-sm" id="fitAll" title="Fit all vehicles"><i class="bi bi-arrows-fullscreen"></i></button>
-      <button class="btn btn-light btn-sm" id="follow" title="Follow selected vehicle"><i class="bi bi-crosshair"></i></button>
+      <button class="btn btn-light btn-sm" id="follow" title="Follow selected vehicle"><i class="bi bi-pin-map"></i></button>
     </div>
   </div>
 </div>
@@ -70,11 +70,11 @@
       seen.add(d.id);
       const ll = [d.fix.lat, d.fix.lon];
       if (!markers[d.id]) {
-        markers[d.id] = L.marker(ll, {icon: Fleet.vehicleIcon(d.state, d.fix.angle)}).addTo(map)
+        markers[d.id] = L.marker(ll, {icon: Fleet.vehicleIcon(d.state, Fleet.heading(d.fix))}).addTo(map)
           .bindTooltip(d.name, {permanent: true, direction: "right", offset: [14, 0], className: "small"});
         markers[d.id].on("click", () => select(d.id));
       } else {
-        markers[d.id].setLatLng(ll).setIcon(Fleet.vehicleIcon(d.state, d.fix.angle));
+        markers[d.id].setLatLng(ll).setIcon(Fleet.vehicleIcon(d.state, Fleet.heading(d.fix)));
       }
     }
     for (const id in markers) if (!seen.has(+id)) { map.removeLayer(markers[id]); delete markers[id]; }
@@ -113,7 +113,11 @@
   });
   document.getElementById("vq").addEventListener("input", render);
   document.getElementById("fitAll").onclick = fitAll;
-  document.getElementById("follow").onclick = e => { follow = !follow; e.currentTarget.classList.toggle("btn-primary", follow); };
+  document.getElementById("follow").onclick = e => {
+    if (!follow && selected == null) { Fleet.toast("Pick a vehicle in the list first, then Follow keeps it in view. To find yourself, use Locate me (the crosshair under the zoom buttons)."); return; }
+    follow = !follow; e.currentTarget.classList.toggle("btn-primary", follow);
+    if (follow && markers[selected]) map.panTo(markers[selected].getLatLng());
+  };
   load(); setInterval(load, Fleet.cfg.poll * 1000);
 })();
 </script>
