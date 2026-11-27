@@ -52,7 +52,7 @@
         else if (d.state === "nosignal") line = d.last_packet ? `No connection · last ${Fleet.ago(d.last_packet)}` : "Never connected";
         else line = `${Fleet.stateLabel[d.state]} · fix ${Fleet.ago(d.fix && d.fix.ts)}`;
         html.push(`<div class="vitem ${selected === d.id ? "sel" : ""}" data-id="${d.id}">
-          <div class="d-flex justify-content-between"><span class="nm"><span class="dot ${d.state}"></span> ${Fleet.esc(d.name)}</span>
+          <div class="d-flex justify-content-between"><span class="nm"><span class="dot ${d.state}"></span> ${Fleet.esc(d.name)} <a class="vdash-link" href="/vehicles/${d.id}/" title="Vehicle dashboard" aria-label="Open the dashboard of ${Fleet.esc(d.name)}"><i class="bi bi-bar-chart-line"></i></a></span>
           <span class="small text-muted">${Fleet.fmt(d.last_packet).slice(0, 16)}</span></div>
           <div class="meta">${line}${d.fix ? "" : ' · <span class="text-danger">no valid fix</span>'}</div>
           <div class="meta">${d.fix ? d.fix.lat.toFixed(5) + ", " + d.fix.lon.toFixed(5) + " · " + d.fix.sats + " sats" : Fleet.esc(d.imei)}</div></div>`);
@@ -109,6 +109,7 @@
     filter = b.dataset.f; render();
   });
   document.getElementById("vlist").addEventListener("click", e => {
+    if (e.target.closest(".vdash-link")) return;
     const it = e.target.closest(".vitem"); if (it) select(+it.dataset.id);
   });
   document.getElementById("vq").addEventListener("input", render);

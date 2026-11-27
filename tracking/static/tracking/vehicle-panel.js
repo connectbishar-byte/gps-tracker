@@ -153,7 +153,8 @@
       root.innerHTML = `
         <header class="vp-head"><div class="min-w-0"><h5 class="mb-0 text-truncate">${esc(dev.name)}</h5>
           <div class="d-flex gap-2 align-items-center flex-wrap mt-1"><span class="vp-pill"></span><span class="small text-muted">${esc(dev.plate || "")}${dev.plate ? " · " : ""}${esc(dev.group)}</span></div></div>
-          ${opts.onClose ? `<button class="btn btn-sm btn-outline-secondary vp-close" aria-label="Close vehicle panel"><i class="bi bi-x-lg"></i></button>` : ""}</header>
+          <div class="d-flex gap-2 align-items-start flex-shrink-0"><a class="btn btn-sm btn-primary vp-dash" href="/vehicles/${dev.id}/" title="Daily distance, driver performance and trips"><i class="bi bi-bar-chart-line"></i> Dashboard</a>
+          ${opts.onClose ? `<button class="btn btn-sm btn-outline-secondary vp-close" aria-label="Close vehicle panel"><i class="bi bi-x-lg"></i></button>` : ""}</div></header>
         <div class="vp-body">
           <div class="vp-stale alert alert-warning py-1 px-2 small" hidden></div>
           <div class="vp-empty text-muted small" hidden>This vehicle has not sent any data yet. Configure the FMC130 with this server and port 5027 (TCP); its gauges appear here as soon as the first record arrives.</div>
@@ -175,6 +176,7 @@
           <div class="small text-muted mb-1">Click any parameter to chart its history. Stored for ${d.retention_days} days.</div>
           <div class="vp-params"></div>
           <div class="d-flex gap-2 mt-3 flex-wrap">
+            <a class="btn btn-sm btn-primary" href="/vehicles/${dev.id}/"><i class="bi bi-bar-chart-line"></i> Vehicle dashboard</a>
             <a class="btn btn-sm btn-outline-primary" href="/history/?device=${dev.id}"><i class="bi bi-signpost-split"></i> Route history</a>
             <a class="btn btn-sm btn-outline-secondary" href="/devices/${dev.id}/"><i class="bi bi-cpu"></i> Device</a>
             ${F.cfg.raw ? `<a class="btn btn-sm btn-outline-secondary" href="/raw/?device=${dev.id}"><i class="bi bi-file-binary"></i> Raw packets</a>` : ""}

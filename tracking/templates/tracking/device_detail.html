@@ -4,6 +4,7 @@
 <div class="d-flex justify-content-between align-items-center mb-2">
   <h5 class="mb-0">{{ d.name }} <span class="badge badge-state bg-{{ s.state }}">{{ s.state }}</span> <span class="small link-{{ s.link }}">{{ s.link }}</span></h5>
   <div class="d-flex gap-2">
+    <a class="btn btn-sm btn-primary" href="{% url 'vehicle_dashboard' d.id %}"><i class="bi bi-bar-chart-line"></i> Dashboard</a>
     <a class="btn btn-sm btn-outline-primary" href="{% url 'history' %}?device={{ d.id }}">History</a>
     <a class="btn btn-sm btn-outline-secondary" href="{% url 'io_inspector' %}?device={{ d.id }}">Latest I/O</a>
     {% if can_view_raw %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'raw' %}?device={{ d.id }}">Raw packets</a>{% endif %}

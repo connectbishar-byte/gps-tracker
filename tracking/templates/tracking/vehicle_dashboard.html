@@ -1,0 +1,141 @@
+{% extends "tracking/base.html" %}
+{% load static fleet_extras %}
+{% block title %}{{ d.name }} · Vehicle dashboard · {{ FLEET.SITE_NAME }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="{% static 'tracking/drivers.css' %}?v={{ ASSET_V }}">
+<link rel="stylesheet" href="{% static 'tracking/vehicle-dashboard.css' %}?v={{ ASSET_V }}">{% endblock %}
+{% block content %}{% with t=data.totals sc=data.score %}
+<div class="vd" id="vd" data-id="{{ d.pk }}">
+  <div class="vd-hero mb-3">
+    <div class="d-flex flex-wrap gap-3 align-items-center justify-content-between">
+      <div class="d-flex align-items-center gap-3 min-w-0">
+        <div class="vd-avatar"><i class="bi bi-truck-front"></i></div>
+        <div class="min-w-0">
+          <div class="small vd-crumb"><a href="{% url 'live' %}"><i class="bi bi-broadcast-pin"></i> Live map</a> · Vehicle dashboard</div>
+          <h4 class="mb-0 text-truncate">{{ d.name }}</h4>
+          <div class="small vd-sub">{% if d.plate %}<span class="vd-plate">{{ d.plate }}</span>{% endif %}{% if d.group %} {{ d.group }} ·{% endif %} IMEI {{ d.masked_imei }}
+            · <span class="vd-state" id="vdState">checking…</span></div>
+        </div>
+      </div>
+      <div class="d-flex flex-wrap gap-2 align-items-center">
+        <select class="form-select form-select-sm" style="max-width: 14rem" aria-label="Another vehicle"
+                onchange="if (this.value) location.href = this.value + '?{{ qs }}'">
+          {% for v in vehicles %}<option value="{% url 'vehicle_dashboard' v.pk %}" {% if v.pk == d.pk %}selected{% endif %}>{{ v.name }}</option>{% endfor %}
+        </select>
+        <a class="btn btn-sm btn-light" href="{% url 'live' %}?vehicle={{ d.pk }}"><i class="bi bi-geo-alt"></i> On map</a>
+        <a class="btn btn-sm btn-light" href="{% url 'history' %}?device={{ d.pk }}"><i class="bi bi-signpost-split"></i> Route history</a>
+        <a class="btn btn-sm btn-light" href="{% url 'driver_sheet' 'vehicle' d.pk %}?{{ qs }}"><i class="bi bi-speedometer2"></i> Score sheet</a>
+        <a class="btn btn-sm btn-light" href="{% url 'device_detail' d.pk %}"><i class="bi bi-cpu"></i> Device</a>
+      </div>
+    </div>
+    <div class="vd-now mt-3" id="vdNow">
+      <div><span>Speed now</span><b data-now="speed">—</b></div>
+      <div><span>Ignition</span><b data-now="ign">—</b></div>
+      <div><span>Today</span><b data-now="today">—</b></div>
+      <div><span>Odometer</span><b data-now="odo">—</b></div>
+      <div><span>Battery</span><b data-now="batt">—</b></div>
+      <div><span>Last seen</span><b data-now="seen">—</b></div>
+      <div><span>Location</span><b data-now="loc">—</b></div>
+    </div>
+  </div>
+
+  <div class="card mb-3"><div class="card-body py-2">{% include "tracking/_ds_range.html" %}</div></div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-lg-3">
+      <div class="card h-100 vd-card"><div class="card-body text-center d-flex flex-column justify-content-center">
+        <div class="vd-label mb-1">Driver performance</div>
+        <div class="vd-ring" id="vdRing" role="img" aria-label="Driver score {{ sc.score|default:'no driving' }} out of 100"></div>
+        <div class="ds-rating {{ sc.rating }} fs-5 mt-1">{{ sc.label }}</div>
+        <div class="small text-body-secondary">Good ≥ {{ sc.good_min }} · Fair ≥ {{ sc.fair_min }}</div>
+      </div></div>
+    </div>
+    <div class="col-lg-9"><div class="row g-2 h-100">
+      <div class="col-6 col-md-3"><div class="vd-kpi"><i class="bi bi-signpost-2"></i><div class="l">Distance</div><div class="v">{{ t.km|floatformat:1 }} <small>km</small></div><div class="s">{{ data.days }} day{{ data.days|pluralize }}</div></div></div>
+      <div class="col-6 col-md-3"><div class="vd-kpi"><i class="bi bi-calendar3"></i><div class="l">Average per day</div><div class="v">{{ t.avg_km_day|floatformat:1 }} <small>km</small></div><div class="s">{{ t.active_days }} day{{ t.active_days|pluralize }} driven</div></div></div>
+      <div class="col-6 col-md-3"><div class="vd-kpi"><i class="bi bi-trophy"></i><div class="l">Longest day</div><div class="v">{% if t.best_day %}{{ t.best_day.km|floatformat:1 }} <small>km</small>{% else %}—{% endif %}</div><div class="s" data-date="{{ t.best_day.date|default:'' }}">{% if not t.best_day %}no driving{% endif %}</div></div></div>
+      <div class="col-6 col-md-3"><div class="vd-kpi"><i class="bi bi-flag"></i><div class="l">Trips</div><div class="v">{{ t.trips }}</div><div class="s">{% if t.trips %}{{ t.km|floatformat:0 }} km in {{ t.trips }}{% else %}none{% endif %}</div></div></div>
+      <div class="col-6 col-md-3"><div class="vd-kpi"><i class="bi bi-stopwatch"></i><div class="l">Driving time</div><div class="v">{{ t.driving_s|dur }}</div><div class="s">engine on {{ t.engine_s|dur }}</div></div></div>
+      <div class="col-6 col-md-3"><div class="vd-kpi"><i class="bi bi-hourglass-split"></i><div class="l">Idling</div><div class="v">{% if t.idle_s is not None %}{{ t.idle_s|dur }}{% else %}—{% endif %}</div><div class="s">{% if t.idle_pct is not None %}{{ t.idle_pct }} % of engine-on time{% else %}needs ignition data{% endif %}</div></div></div>
+      <div class="col-6 col-md-3"><div class="vd-kpi"><i class="bi bi-speedometer"></i><div class="l">Max / average speed</div><div class="v">{{ t.max_kmh }} <small>/ {{ t.avg_kmh }} km/h</small></div><div class="s">over {{ sc.speed_limit_kmh }} km/h: {{ t.overspeed_pct }} % of driving</div></div></div>
+      <div class="col-6 col-md-3"><div class="vd-kpi"><i class="bi bi-exclamation-triangle"></i><div class="l">Harsh events</div><div class="v">{{ t.harsh_accel|add:t.harsh_brake|add:t.harsh_turn }}</div><div class="s">{{ t.harsh_accel }} accel · {{ t.harsh_brake }} brake · {{ t.harsh_turn }} turn</div></div></div>
+    </div></div>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-xl-8"><div class="card h-100 vd-card">
+      <div class="card-header vd-ch"><span><i class="bi bi-bar-chart"></i> Daily distance</span><span class="small text-body-secondary">km per day · dashed line is the average</span></div>
+      <div class="card-body vd-fill"><div class="vd-chart" id="chKm"></div></div>
+    </div></div>
+    <div class="col-xl-4"><div class="card h-100 vd-card">
+      <div class="card-header vd-ch"><span><i class="bi bi-clipboard-data"></i> Score breakdown</span><span class="small text-body-secondary">points lost</span></div>
+      <div class="card-body">
+        {% for b in sc.breakdown %}
+        <div class="vd-break">
+          <div class="d-flex justify-content-between small"><span>{{ b.label }}</span><span class="fw-semibold">{{ b.score }}{% if b.points %} <span class="text-body-secondary fw-normal">(−{{ b.points }})</span>{% endif %}</span></div>
+          <div class="ds-bar"><span class="{{ b.rating }}" style="width: {{ b.score }}%"></span></div>
+          <div class="vd-break-m">{{ b.measured }} · {{ b.rate }}</div>
+        </div>
+        {% endfor %}
+        <div class="small text-body-secondary mt-2">{{ data.notes.harsh_note }}</div>
+      </div>
+    </div></div>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-lg-6"><div class="card h-100 vd-card">
+      <div class="card-header vd-ch"><span><i class="bi bi-graph-up"></i> Daily driver score</span><span class="small text-body-secondary">0 to 100 · days without driving are skipped</span></div>
+      <div class="card-body"><div class="vd-chart" id="chScore" style="height: 230px"></div></div>
+    </div></div>
+    <div class="col-lg-6"><div class="card h-100 vd-card">
+      <div class="card-header vd-ch"><span><i class="bi bi-clock-history"></i> Driving and idling</span><span class="vd-legend" id="lgTime"></span></div>
+      <div class="card-body"><div class="vd-chart" id="chTime" style="height: 230px"></div></div>
+    </div></div>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-lg-5"><div class="card h-100 vd-card">
+      <div class="card-header vd-ch"><span><i class="bi bi-speedometer2"></i> Speed profile</span><span class="small text-body-secondary">share of driving time</span></div>
+      <div class="card-body"><div class="vd-chart" id="chSpeed" style="height: 230px"></div></div>
+    </div></div>
+    <div class="col-lg-7"><div class="card h-100 vd-card">
+      <div class="card-header vd-ch"><span><i class="bi bi-grid-3x3"></i> When it drives</span><span class="small text-body-secondary" id="hmNote">driving minutes by hour</span></div>
+      <div class="card-body"><div class="vd-chart" id="chHeat"></div></div>
+    </div></div>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-lg-5"><div class="card h-100 vd-card">
+      <div class="card-header vd-ch"><span><i class="bi bi-people"></i> Drivers</span><span class="small text-body-secondary">who drove this vehicle</span></div>
+      <div class="card-body p-0">
+        {% if data.drivers %}
+        <div class="table-responsive"><table class="table table-sm mb-0 align-middle">
+          <thead class="table-light"><tr><th>Driver</th><th class="text-end">Trips</th><th class="text-end">km</th><th>Driving</th><th>Score</th></tr></thead>
+          <tbody>{% for r in data.drivers %}
+            <tr><td>{% if r.source == 'car view' and r.id %}<a href="{% url 'driver_sheet' 'user' r.id %}?{{ qs }}">{{ r.name }}</a>{% else %}{{ r.name }}{% endif %}
+              <div class="small text-body-secondary">{% if r.source == 'tracker' %}iButton on the tracker{% else %}Car view drives{% endif %}</div></td>
+              <td class="text-end">{{ r.trips }}</td><td class="text-end">{{ r.km|floatformat:1 }}</td><td>{{ r.driving_s|dur }}</td>
+              <td>{% if r.score is not None %}<span class="ds-score {{ r.rating }}">{{ r.score }}</span>{% else %}—{% endif %}</td></tr>
+          {% endfor %}</tbody></table></div>
+        {% else %}
+        <div class="p-3 small text-body-secondary">No driver identified in this period. Drivers appear here when the tracker sends an iButton ID (AVL 78) or when someone saves a drive with this vehicle in Car view.</div>
+        {% endif %}
+      </div>
+    </div></div>
+    <div class="col-lg-7"><div class="card h-100 vd-card">
+      <div class="card-header vd-ch"><span><i class="bi bi-list-ul"></i> Trips</span><span class="small text-body-secondary">newest first · open one to replay it</span></div>
+      <div class="card-body p-0">
+        <div class="table-responsive vd-trips"><table class="table table-sm table-hover mb-0 align-middle">
+          <thead class="table-light"><tr><th>Start</th><th>Duration</th><th class="text-end">km</th><th class="text-end">Max</th><th class="text-end">Harsh</th><th>Score</th><th></th></tr></thead>
+          <tbody id="vdTrips"><tr><td colspan="7" class="text-center text-body-secondary py-3">No trips in this period.</td></tr></tbody>
+        </table></div>
+      </div>
+    </div></div>
+  </div>
+
+  <div class="small text-body-secondary mb-3">Built from {{ data.notes.records|default:0 }} tracker record{{ data.notes.records|pluralize }}.
+    Trips are counted on the day they start. The score uses the same weights as the <a href="{% url 'drivers' %}?{{ qs }}">Driver score</a> page.</div>
+</div>
+<div class="vd-tip" id="vdTip" role="status" hidden></div>
+{{ data|json_script:"vdData" }}
+{% endwith %}{% endblock %}
+{% block scripts %}<script src="{% static 'tracking/vehicle-dashboard.js' %}?v={{ ASSET_V }}"></script>{% endblock %}

@@ -1,0 +1,64 @@
+/* Vehicle dashboard */
+.vd { --dv-1: #0d9488; --dv-2: #d97706; --dv-grid: var(--line); --dv-axis: var(--muted);
+      --st-good: #16a34a; --st-fair: #d97706; --st-bad: #dc2626; }
+.vd-hero { background: linear-gradient(135deg, var(--rail), var(--rail-2)); color: #e2e8f0; border-radius: 1rem;
+  padding: 1rem 1.2rem; box-shadow: var(--shadow); }
+.vd-hero h4 { color: #fff; font-weight: 700; }
+.vd-hero a:not(.btn) { color: #99f6e4; text-decoration: none; }
+.vd-hero .btn-light { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.18); color: #f1f5f9; }
+.vd-hero .btn-light:hover { background: rgba(255,255,255,.2); color: #fff; }
+.vd-crumb { opacity: .85; }
+.vd-sub { color: #cbd5e1; }
+.vd-plate { display: inline-block; background: #fff; color: #0f172a; font-weight: 700; border-radius: .3rem; padding: 0 .4rem;
+  letter-spacing: .5px; margin-right: .3rem; }
+.vd-avatar { width: 54px; height: 54px; flex: 0 0 54px; border-radius: 14px; display: grid; place-items: center; font-size: 28px;
+  background: rgba(20,184,166,.2); color: #5eead4; }
+.vd-state .dot { display: inline-block; width: .55rem; height: .55rem; border-radius: 50%; margin-right: .25rem; vertical-align: middle; }
+.vd-now { display: grid; grid-template-columns: repeat(auto-fit, minmax(105px, 1fr)); gap: .5rem; }
+.vd-now > div { background: rgba(255,255,255,.07); border-radius: .6rem; padding: .45rem .7rem; min-width: 0; }
+.vd-now span { display: block; font-size: .72rem; color: #94a3b8; text-transform: uppercase; letter-spacing: .4px; }
+.vd-now b { display: block; color: #fff; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vd-card { border-radius: .9rem; border-color: var(--line); box-shadow: var(--shadow); }
+.vd-ch { display: flex; justify-content: space-between; align-items: center; gap: .5rem; flex-wrap: wrap; background: transparent; font-weight: 600; }
+.vd-ch i { color: var(--dv-1); margin-right: .25rem; }
+.vd-label { font-size: .8rem; color: var(--bs-secondary-color); text-transform: uppercase; letter-spacing: .4px; }
+.vd-kpi { position: relative; border: 1px solid var(--line); border-radius: .9rem; padding: .7rem .85rem; background: var(--card);
+  height: 100%; box-shadow: var(--shadow); }
+.vd-kpi > i { position: absolute; right: .7rem; top: .6rem; font-size: 1.15rem; color: var(--dv-1); opacity: .8; }
+.vd-kpi .l { font-size: .78rem; color: var(--bs-secondary-color); }
+.vd-kpi .v { font-size: 1.45rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.25; }
+.vd-kpi .v small { font-size: .8rem; font-weight: 500; color: var(--bs-secondary-color); }
+.vd-kpi .s { font-size: .74rem; color: var(--bs-secondary-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vd-ring svg { width: 150px; height: 150px; }
+.vd-break { margin-bottom: .6rem; }
+.vd-break .ds-bar { margin: .2rem 0; }
+.vd-break-m { font-size: .72rem; color: var(--bs-secondary-color); }
+.vd-chart { position: relative; width: 100%; }
+.vd-chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.vd-chart text { font-size: 11px; fill: var(--dv-axis); font-variant-numeric: tabular-nums; }
+.vd-chart .lbl { fill: var(--ink); font-weight: 600; }
+.vd-chart .grid { stroke: var(--dv-grid); stroke-width: 1; }
+.vd-chart .base { stroke: var(--muted); stroke-width: 1; }
+.vd-chart .avg { stroke: var(--ink); stroke-width: 1.5; stroke-dasharray: 4 4; opacity: .7; }
+.vd-chart .band { stroke-width: 1; stroke-dasharray: 3 4; }
+.vd-chart .hit { fill: transparent; cursor: pointer; }
+.vd-chart .hit:hover + .mark, .vd-chart .mark.on { filter: brightness(1.15); }
+.vd-chart .col-hover { fill: var(--ink); opacity: 0; }
+.vd-chart g.on .col-hover { opacity: .05; }
+.vd-empty { display: grid; place-items: center; height: 100%; color: var(--bs-secondary-color); font-size: .9rem; }
+.vd-legend { display: inline-flex; gap: .8rem; font-size: .8rem; font-weight: 400; color: var(--bs-secondary-color); }
+.vd-legend i { display: inline-block; width: .7rem; height: .7rem; border-radius: 3px; margin-right: .3rem; vertical-align: -1px; }
+.vd-tip { position: fixed; z-index: 2000; pointer-events: none; background: var(--card); color: var(--ink); border: 1px solid var(--line);
+  border-radius: .5rem; padding: .4rem .6rem; font-size: .8rem; box-shadow: 0 6px 18px rgba(15,23,42,.18); max-width: 240px; }
+.vd-tip b { font-variant-numeric: tabular-nums; }
+.vd-tip .k { color: var(--bs-secondary-color); }
+.vd-trips { max-height: 420px; overflow-y: auto; }
+.vd-trips td { white-space: nowrap; }
+.vd-hm { display: grid; gap: 2px; font-size: 10px; color: var(--bs-secondary-color); }
+.vd-hm .c { height: 16px; border-radius: 3px; background: var(--line-soft); }
+.vd-hm .r { white-space: nowrap; text-align: right; padding-right: .3rem; line-height: 16px; }
+.vd-hm .h { text-align: center; }
+@media (max-width: 575px) { .vd-hero { padding: .8rem; } .vd-kpi .v { font-size: 1.2rem; } }
+@media print { .vd-hero { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+.vd-fill { display: flex; flex-direction: column; }
+.vd-fill .vd-chart { flex: 1 1 auto; min-height: 260px; }
