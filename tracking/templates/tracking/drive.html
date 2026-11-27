@@ -1,0 +1,121 @@
+{% load static %}<!doctype html>
+<html lang="en" data-bs-theme="dark">
+<head>
+<meta charset="utf-8">
+<script>
+(function () {
+  var pref = "dark";
+  try { pref = localStorage.getItem("mgt-theme") || "dark"; } catch (e) {}
+  var dark = pref === "dark" || (pref === "auto" && window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.setAttribute("data-bs-theme", dark ? "dark" : "light");
+  document.documentElement.dataset.themePref = pref;
+})();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#07101d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Car view">
+<link rel="manifest" href="{% static 'tracking/drive.webmanifest' %}">
+<title>Car view · {{ FLEET.SITE_NAME }}</title>
+<link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap.min.css' %}">
+<link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
+<link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
+<link rel="stylesheet" href="{% static 'tracking/app.css' %}?v={{ ASSET_V }}">
+<link rel="stylesheet" href="{% static 'tracking/drive.css' %}?v={{ ASSET_V }}">
+</head>
+<body class="drive-body">
+<div class="dv" id="dv">
+  <div id="dmap" class="dv-map"></div>
+
+  <header class="dv-top">
+    <a class="dv-btn" href="{% url 'dashboard' %}" title="Back to the tracker" aria-label="Back"><i class="bi bi-chevron-left"></i></a>
+    <select id="dsource" class="form-select form-select-sm dv-source" aria-label="Position source">
+      <option value="phone">This phone's GPS</option>
+      {% for v in vehicles %}<option value="{{ v.id }}">{{ v.name }}{% if v.plate %} · {{ v.plate }}{% endif %}</option>{% endfor %}
+    </select>
+    <span class="dv-gps" id="dgps" title="GPS signal"><i class="bi bi-circle-fill"></i> <span>GPS</span></span>
+    <a class="dv-btn" href="{% url 'places' %}" title="Saved places" aria-label="Saved places"><i class="bi bi-pin-map"></i></a>
+    <button class="dv-btn" id="dfull" title="Full screen" aria-label="Full screen"><i class="bi bi-fullscreen"></i></button>
+    <button class="dv-btn" id="dcfg" title="Choose what is shown" aria-label="Settings"><i class="bi bi-sliders"></i></button>
+  </header>
+
+  <div class="dv-maptools">
+    <button class="dv-btn" id="dlocate" title="Locate me / follow" aria-label="Locate me"><i class="bi bi-crosshair2"></i></button>
+  </div>
+
+  <div class="dv-alert" id="dalert" hidden></div>
+
+  <section class="dv-sheet" id="dsheet">
+    <button class="dv-handle" id="dhandle" aria-label="Show more or less"><span></span></button>
+    <div class="dv-main">
+      <div class="dv-speed" id="dspeedbox">
+        <div class="dv-speed-n" id="dspeed">0</div>
+        <div class="dv-speed-u">km/h</div>
+      </div>
+      <div class="dv-mainmid">
+        <div class="dv-loc" id="dloc"><i class="bi bi-geo-alt-fill"></i> <span>Waiting for location…</span></div>
+        <div class="dv-sub" id="dsub">Press Start to record a drive</div>
+      </div>
+      <div class="dv-actions">
+        <button class="dv-pin" id="dpin" title="Save this spot" aria-label="Save this spot"><i class="bi bi-pin-angle-fill"></i></button>
+        <button class="dv-start" id="dstart"><i class="bi bi-play-fill"></i><span>Start</span></button>
+      </div>
+    </div>
+    <div class="dv-tiles" id="dtiles"></div>
+  </section>
+
+  <!-- Settings: which tiles show, speed limit, behaviour -->
+  <div class="dv-modal" id="dcfgbox" hidden>
+    <div class="dv-dialog">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h2 class="h5 m-0">Car view settings</h2>
+        <button class="btn-close" data-close aria-label="Close"></button>
+      </div>
+      <div class="small text-body-secondary mb-2">Choose the details shown at the bottom. Saved on this phone.</div>
+      <div class="dv-cfg-list" id="dcfglist"></div>
+      <div class="row g-2 mt-2">
+        <div class="col-6"><label class="form-label small mb-1" for="dlimit">Speed limit alert (km/h)</label>
+          <input type="number" min="20" max="250" step="5" class="form-control form-control-sm" id="dlimit"></div>
+        <div class="col-6"><label class="form-label small mb-1" for="dsens">Harsh-driving sensitivity</label>
+          <select class="form-select form-select-sm" id="dsens"><option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option></select></div>
+      </div>
+      <div class="form-check form-switch mt-3"><input class="form-check-input" type="checkbox" id="dwake"><label class="form-check-label" for="dwake">Keep the screen on while driving</label></div>
+      <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="dbeep"><label class="form-check-label" for="dbeep">Beep when over the speed limit</label></div>
+      <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="dautopin"><label class="form-check-label" for="dautopin">Ask for a name when I stop (off: save straight away)</label></div>
+      <div class="d-flex gap-2 mt-3">
+        <button class="btn btn-outline-secondary btn-sm" id="dcfgreset">Reset to default</button>
+        <button class="btn btn-primary btn-sm ms-auto" data-close>Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stop: save the place -->
+  <div class="dv-modal" id="dstopbox" hidden>
+    <div class="dv-dialog">
+      <h2 class="h5 mb-1">Drive stopped</h2>
+      <div class="small text-body-secondary mb-2" id="dstopsum"></div>
+      <label class="form-label small mb-1" for="dstopname">Save this place as</label>
+      <input class="form-control mb-2" id="dstopname" maxlength="120">
+      <label class="form-label small mb-1" for="dstopnotes">Notes (optional)</label>
+      <textarea class="form-control mb-3" id="dstopnotes" rows="2" maxlength="2000"></textarea>
+      <div class="d-flex gap-2 flex-wrap">
+        <button class="btn btn-outline-danger btn-sm" id="dstopdiscard">Don't save</button>
+        <button class="btn btn-outline-secondary btn-sm" id="dstopresume">Keep driving</button>
+        <button class="btn btn-primary ms-auto" id="dstopsave"><i class="bi bi-check2"></i> Save place</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dv-toast" id="dtoast" hidden></div>
+</div>
+
+<script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+{% if GOOGLE_MAPS_KEY %}<script src="{% static 'vendor/googlemutant/Leaflet.GoogleMutant.js' %}"></script>{% endif %}
+<script>window.FLEET_CFG = {tz: "{{ FLEET_TZ|default:'Asia/Dubai' }}", poll: {{ FLEET.POLL_SECONDS }}, api: "{% url 'api_fleet' %}", rx: "", gkey: "{{ GOOGLE_MAPS_KEY|escapejs }}", raw: false};
+window.DRIVE_CFG = {places: "{% url 'place-list' %}", geocode: "{% url 'places_geocode' %}", placesPage: "{% url 'places' %}", csrf: "{{ csrf_token }}"};</script>
+<script src="{% static 'tracking/app.js' %}?v={{ ASSET_V }}"></script>
+<script src="{% static 'tracking/drive.js' %}?v={{ ASSET_V }}"></script>
+</body>
+</html>

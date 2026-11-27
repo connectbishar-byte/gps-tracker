@@ -212,3 +212,52 @@ class IntegrationSetting(models.Model):
 
     def __str__(self):
         return self.key
+
+
+class SavedPlace(models.Model):
+    """
+    A place saved from the mobile car view (/drive/): either where a drive was stopped ("trip"), with that
+    drive's summary, or a spot pinned while driving ("pin"), or a row imported from a KML/CSV/GeoJSON file.
+    Listed on /places/ and exportable as KML (Google My Maps / Google Earth), CSV and GeoJSON.
+    """
+    KINDS = [("trip", "Drive stop"), ("pin", "Pinned spot"), ("import", "Imported")]
+    SOURCES = [("phone", "Phone GPS"), ("vehicle", "Vehicle tracker"), ("file", "Imported file")]
+
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+                              related_name="saved_places")
+    device = models.ForeignKey(Device, null=True, blank=True, on_delete=models.SET_NULL, related_name="saved_places")
+    kind = models.CharField(max_length=10, choices=KINDS, default="trip")
+    source = models.CharField(max_length=10, choices=SOURCES, default="phone")
+    name = models.CharField(max_length=120)
+    notes = models.TextField(blank=True)
+    latitude = models.FloatField(validators=[MinValueValidator(-90), MaxValueValidator(90)])
+    longitude = models.FloatField(validators=[MinValueValidator(-180), MaxValueValidator(180)])
+    accuracy_m = models.FloatField(null=True, blank=True)
+    address = models.CharField(max_length=300, blank=True)
+    created_utc = models.DateTimeField(default=timezone.now, db_index=True)
+
+    # drive summary (kind == "trip")
+    started_utc = models.DateTimeField(null=True, blank=True)
+    ended_utc = models.DateTimeField(null=True, blank=True)
+    start_latitude = models.FloatField(null=True, blank=True)
+    start_longitude = models.FloatField(null=True, blank=True)
+    start_address = models.CharField(max_length=300, blank=True)
+    distance_km = models.FloatField(null=True, blank=True)
+    duration_s = models.PositiveIntegerField(null=True, blank=True)
+    moving_s = models.PositiveIntegerField(null=True, blank=True)
+    max_speed_kmh = models.FloatField(null=True, blank=True)
+    avg_speed_kmh = models.FloatField(null=True, blank=True)
+    driver_score = models.PositiveSmallIntegerField(null=True, blank=True)
+    driver_rating = models.CharField(max_length=12, blank=True)  # good | fair | aggressive
+    harsh_accel = models.PositiveIntegerField(default=0)
+    harsh_brake = models.PositiveIntegerField(default=0)
+    harsh_turn = models.PositiveIntegerField(default=0)
+    overspeed_s = models.PositiveIntegerField(default=0)
+    track = models.JSONField(default=list, blank=True, help_text="[[lat, lon], ...] of the drive, thinned")
+
+    class Meta:
+        ordering = ["-created_utc"]
+        indexes = [models.Index(fields=["owner", "created_utc"], name="place_owner_ts")]
+
+    def __str__(self):
+        return self.name

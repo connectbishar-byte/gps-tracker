@@ -333,3 +333,6 @@ body.bot-bottom-right .map-toast { bottom: 110px; }
   .bot-fab { width: 58px; height: 68px; }
   .bot-panel { height: calc(100vh - 150px); }
 }
+.map-quick a { font-size: 15px; display: flex; align-items: center; justify-content: center; }
+.map-quick a.busy i { animation: mq-pulse 1s infinite; }
+@keyframes mq-pulse { 50% { opacity: .3; } }

@@ -164,6 +164,14 @@ PAGES = {
                  "Long windows can hold thousands of points; shorten the window if the page is slow."],
         "ask": ["Why is the route empty?", "What is a late record?"],
     },
+    "places": {
+        "title": "Saved places",
+        "about": "Spots saved from the Car view (pin button or when you stop a drive), with export to Google Maps.",
+        "tips": ["Export KML or CSV and import it into Google My Maps or Google Earth.",
+                 "Navigate opens Google Maps directions to the place.",
+                 "Import accepts files exported from here, to move places between systems."],
+        "ask": ["How do I put these places on Google Maps?", "How do I save a place?"],
+    },
     "records": {
         "title": "Records",
         "about": "Every decoded AVL record (position + I/O values) the trackers have sent, newest first.",
@@ -502,7 +510,9 @@ About the app:
   packet, decodes records, and ACKs only after the database commit.
 - Web pages: Dashboard (counts and 24 h traffic), Live map (vehicles, gauges panel, base map switcher with Google /
   OSM / CARTO / Esri layers), History (route replay), Records (decoded AVL records and I/O values), Raw data (hex
-  packets, CRC, ACK; staff and raw_data group only), Devices (allow-list, retention per vehicle), Port terminal
+  packets, CRC, ACK; staff and raw_data group only), Car view (/drive/, full-screen phone view for driving with
+  Start/Stop, locate me, and a pin to save the current spot), Saved places (list, Navigate, KML/CSV/GeoJSON export
+  for Google My Maps / Earth, import), Devices (allow-list, retention per vehicle), Port terminal
   (live connection/byte log; staff/raw only), Connectivity (receiver status, recent and rejected connections,
   self-test), Settings (environment, integration keys for Google Maps / Anthropic / OpenAI, this assistant,
   FMC130 configurator values), REST API at /api/v1/ with docs at /api/docs/.

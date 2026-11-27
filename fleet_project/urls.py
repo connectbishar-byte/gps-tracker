@@ -24,6 +24,7 @@ urlpatterns = [
     path("settings/integrations/test-anthropic/", views.settings_test_anthropic, name="settings_test_anthropic"),
     path("settings/assistant/", views.settings_assistant, name="settings_assistant"),
     path("terminal/", views.terminal, name="terminal"),
+    path("", include("tracking.places_urls")),  # car view /drive/ and saved places /places/
     path("account/password/", views.PasswordChange.as_view(), name="password_change"),
     path("api/v1/", include("tracking.api_urls")),
     path("api/schema/", SpectacularAPIView.as_view(), name="api_schema"),

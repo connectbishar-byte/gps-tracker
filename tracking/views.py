@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import logging
+import math
 from datetime import timedelta
 
 from django import forms
@@ -67,6 +68,32 @@ raw_required = user_passes_test(can_view_raw)
 # ---------------------------------------------------------------------------
 # Status helpers
 # ---------------------------------------------------------------------------
+def bearing_deg(lat1, lon1, lat2, lon2) -> float:
+    """Initial compass bearing from point 1 to point 2: 0 = north, 90 = east (clockwise)."""
+    p1, p2, dl = math.radians(lat1), math.radians(lat2), math.radians(lon2 - lon1)
+    y = math.sin(dl) * math.cos(p2)
+    x = math.cos(p1) * math.sin(p2) - math.sin(p1) * math.cos(p2) * math.cos(dl)
+    return (math.degrees(math.atan2(y, x)) + 360) % 360
+
+
+def distance_m(lat1, lon1, lat2, lon2) -> float:
+    k = 111_320.0
+    return math.hypot((lat2 - lat1) * k, (lon2 - lon1) * k * math.cos(math.radians((lat1 + lat2) / 2)))
+
+
+def travel_course(d: Device, min_move_m: float = 15.0):
+    """Bearing from an earlier valid fix to the latest one, or None when the vehicle hasn't moved far enough."""
+    if d.last_fix_ts is None or d.last_fix_lat is None:
+        return None
+    earlier = (d.records.filter(valid_fix=True, timestamp_utc__lt=d.last_fix_ts,
+                                timestamp_utc__gte=d.last_fix_ts - timedelta(minutes=5))
+               .order_by("-timestamp_utc").values_list("latitude", "longitude")[:20])
+    for lat, lon in earlier:
+        if distance_m(lat, lon, d.last_fix_lat, d.last_fix_lon) >= min_move_m:
+            return round(bearing_deg(lat, lon, d.last_fix_lat, d.last_fix_lon))
+    return None
+
+
 def device_status(d: Device, now=None) -> dict:
     now = now or timezone.now()
     cfg = settings.FLEET
@@ -91,6 +118,7 @@ def device_status(d: Device, now=None) -> dict:
     else:
         state = "parked"
     fix_age = (now - d.last_fix_ts).total_seconds() if d.last_fix_ts else None
+    course = travel_course(d) if state == "moving" else None
     return {
         "id": d.id, "name": d.name, "plate": d.plate, "group": d.group or "Default", "model": d.model,
         "imei": d.masked_imei, "enabled": d.enabled, "link": link, "state": state,
@@ -100,6 +128,9 @@ def device_status(d: Device, now=None) -> dict:
             "ts": d.last_fix_ts.isoformat(), "lat": d.last_fix_lat, "lon": d.last_fix_lon,
             "speed": d.last_fix_speed, "angle": d.last_fix_angle, "sats": d.last_fix_sats,
             "age_s": int(fix_age),
+            # Direction of travel worked out from the last fixes; the map arrow uses it, so the arrow points
+            # where the vehicle actually went even when the tracker's own heading field is off.
+            "course": course if course is not None else d.last_fix_angle,
         },
         "ignition": d.last_ignition, "movement": d.last_movement, "gsm": d.last_gsm_signal,
         "ext_v": d.last_ext_voltage, "packets": d.packet_count, "records": d.record_count,
