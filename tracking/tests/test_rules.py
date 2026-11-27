@@ -156,6 +156,44 @@ class MetaFunctionTests(TestCase):
         self.assertEqual(whatsapp.send_media("971507864838", "", "http://x", "")[1], 400)
         self.assertEqual(whatsapp.send_media("971507864838", "", "https://x", "", "gif")[1], 400)
 
+    def test_template_text_payload(self):
+        seen, p = self.capture()
+        with p:
+            res, code = whatsapp.send_template_text("971507864838", "Daily report", "Bishar", "Line one\n\n  line two " + "x" * 900)
+        self.assertEqual(code, 200)
+        t = seen["body"]["template"]
+        self.assertEqual((t["name"], t["language"]["code"]), ("prod_report", "en_US"))
+        self.assertEqual(t["components"][0]["parameters"][0], {"type": "text", "parameter_name": "head_name", "text": "Daily report"})
+        body = {x["parameter_name"]: x["text"] for x in t["components"][1]["parameters"]}
+        self.assertEqual(body["custname"], "Bishar")
+        self.assertTrue(body["textname"].startswith("Line one line two x"))
+        self.assertEqual(len(body["textname"]), 750)
+        m = WhatsAppMessage.objects.get()
+        self.assertEqual(m.response["messages"][0]["id"], "wamid.ABC")
+        self.assertNotIn("EAAtoken", json.dumps(m.meta))
+
+    def test_template_document_payload(self):
+        seen, p = self.capture()
+        with p:
+            whatsapp.send_template_document("971507864838", "Ali", "https://x.com/c.pdf", "Your certificate is ready.")
+        t = seen["body"]["template"]
+        self.assertEqual(t["name"], "certificate_ready_docs")
+        self.assertEqual(t["components"][0]["parameters"][0]["document"], {"link": "https://x.com/c.pdf", "filename": "Ali_Certificate.pdf"})
+        self.assertEqual([x["text"] for x in t["components"][1]["parameters"]], ["Ali", "Your certificate is ready."])
+        self.assertEqual(whatsapp.send_template_document("971507864838", "Ali", "http://x.com/c.pdf")[1], 400)
+
+    def test_alerts_use_template_or_plain_text(self):
+        integrations.save("whatsapp_provider", "meta")
+        integrations.save("whatsapp_recipients", "+971501234567")
+        seen, p = self.capture()
+        with p:
+            self.assertTrue(whatsapp.send("Jeep entered Office", subject="Zone entry")["ok"])
+        self.assertEqual(seen["body"]["template"]["components"][0]["parameters"][0]["text"], "Zone entry")
+        integrations.save("whatsapp_meta_mode", "text")
+        with p:
+            whatsapp.send("Jeep entered Office", subject="Zone entry")
+        self.assertEqual(seen["body"]["type"], "text")
+
     def test_meta_error_is_returned(self):
         seen, p = self.capture(401, {"error": {"message": "Invalid OAuth access token.", "code": 190}})
         with mock.patch("urllib.request.urlopen", side_effect=__import__("urllib.error").error.HTTPError(
@@ -194,7 +232,25 @@ class MetaFunctionTests(TestCase):
                                                                     "file_type": "image", "file_url": "https://yourdomain.com/certificate.jpg",
                                                                     "message": "Your certificate is ready."}, content_type="application/json")
             self.assertEqual(r.status_code, 200, r.content)
-            self.assertEqual(self.c.post("/settings/whatsapp/test-text/", {"to_number": "971507864838"}).json()["status"], "success")
+            self.assertEqual(seen["body"]["type"], "image")
+            r = self.c.post("/api/v1/whatsapp/send-text/", {"to_number": "971507864838", "subject": "Meltice Technology",
+                                                             "customer_name": "Customer", "text_name": "Report"},
+                            content_type="application/json")
+            self.assertEqual(seen["body"]["template"]["name"], "prod_report")
+            r = self.c.post("/api/v1/whatsapp/send-media/", {"to_number": "971507864838", "customer_name": "Ali",
+                                                              "pdf_url": "https://x.com/c.pdf", "message": "Ready"},
+                            content_type="application/json")
+            self.assertEqual(r.status_code, 200, r.content)
+            self.assertEqual(seen["body"]["template"]["name"], "certificate_ready_docs")
+            for what in ("template", "text", "image", "pdf_template", "pdf"):
+                r = self.c.post("/settings/whatsapp/test-send/", {"what": what, "to_number": "971507864838",
+                                                                  "file_url": "https://x.com/c.pdf"})
+                self.assertEqual(r.json()["status"], "success", (what, r.content))
+        page = self.c.get("/settings/").content.decode()
+        self.assertIn("prod_report", page)
+        self.assertIn("certificate_ready_docs", page)
+        self.assertNotIn("EAAtoken", page)
+        self.assertIn("Bearer ********", page)  # masked token in the log
         viewer = User.objects.create_user("v", password="pw-12345678")
         vc = Client()
         vc.login(username="v", password="pw-12345678")
@@ -231,4 +287,4 @@ class RulePageTests(TestCase):
         self.assertFalse(AlertRule.objects.get().active)
         self.c.post(f"/alerts/{rule.pk}/delete/")
         self.assertFalse(AlertRule.objects.exists())
-        self.assertContains(self.c.get("/settings/"), "Test the two functions")
+        self.assertContains(self.c.get("/settings/"), "Test sending")

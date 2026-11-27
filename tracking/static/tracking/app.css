@@ -345,3 +345,5 @@ body.embed .shell { margin-left: 0; }
 body.embed .live-wrap, body.embed .places-wrap { min-height: 100vh; }
 /* Alerts rule form */
 .rule-checks { max-height: 150px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; }
+.wa-log summary { cursor: pointer; list-style: none; }
+.wa-json { background: #0f172a; color: #e2e8f0; padding: 8px 10px; border-radius: 8px; font-size: 11px; max-height: 260px; overflow: auto; white-space: pre-wrap; margin-bottom: 4px; }

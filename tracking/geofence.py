@@ -218,7 +218,7 @@ def send_alert(event_id: int) -> None:
     if not ev:
         return
     from . import whatsapp
-    res = whatsapp.send(alert_text(ev), ev.geofence.recipients if ev.geofence else None)
+    res = whatsapp.send(alert_text(ev), ev.geofence.recipients if ev.geofence else None, subject="Geofence alert")
     GeofenceEvent.objects.filter(pk=ev.pk).update(alert_status="sent" if res.get("sent") else "failed",
                                                   alert_detail=res["detail"][:500])
     if not res.get("sent"):

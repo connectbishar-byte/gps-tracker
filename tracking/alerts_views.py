@@ -5,11 +5,14 @@ Alerts page (rule engine) and the Meta WhatsApp Cloud API endpoints.
   /alerts/new/ · /alerts/<id>/     add / edit a rule (staff)
   /alerts/<id>/delete/ · /test/    delete a rule / send a sample message (staff)
   /whatsapp/webhook/               Meta webhook: GET verification (VERIFY_TOKEN), POST delivery statuses + replies
-  /settings/whatsapp/test-text/    test the text function (staff)
-  /settings/whatsapp/test-media/   test the image / PDF function (staff)
-  /api/v1/whatsapp/send-text/      POST {to_number, subject, customer_name, text_name}           (staff, token or session)
-  /api/v1/whatsapp/send-media/     POST {to_number, customer_name, file_type, file_url, message} (staff, token or session)
-  /api/v1/whatsapp/send-certificate/  same as send-media (name from Bishar's Flask app)
+  /settings/whatsapp/test-send/    test any message type from Settings (staff)
+  /api/v1/whatsapp/send-text/      POST {to_number, subject, customer_name, text_name}  → prod_report template
+                                   (or plain text when Settings say so / "mode": "text")
+  /api/v1/whatsapp/send-template/  same, always the template · /send-message/ always plain text
+  /api/v1/whatsapp/send-media/     POST {to_number, customer_name, file_type, file_url|image_url|pdf_url, message}
+                                   image → image with caption, pdf → certificate_ready_docs template
+  /api/v1/whatsapp/send-certificate/  same as send-media · /send-image-message/ always an image
+  (all staff only, token or session)
 """
 from __future__ import annotations
 
@@ -201,39 +204,52 @@ def _media_args(data) -> dict:
             "message": str(data.get("message") or "").strip(), "file_type": file_type}
 
 
-@login_required
-@staff_required
-@require_POST
-def settings_test_text(request):
-    args = _text_args(request.POST)
-    args["subject"] = args["subject"] or "Meltice Technology"
-    args["text"] = args["text"] or "Test message from the GPS tracker. WhatsApp alerts work."
-    result, code = whatsapp.send_text(**args, source="test")
-    return JsonResponse(result)
+def send_what(what: str, data, source: str) -> tuple[dict, int]:
+    """One entry point for every Meta send: template | text | image | pdf_template | pdf."""
+    t, m = _text_args(data), _media_args(data)
+    if what == "template":
+        return whatsapp.send_template_text(t["to_number"], t["subject"], t["customer_name"], t["text"], source=source)
+    if what == "text":
+        return whatsapp.send_text(**t, source=source)
+    if what == "pdf_template":
+        return whatsapp.send_template_document(m["to_number"], m["customer_name"], m["file_url"], m["message"],
+                                               source=source)
+    if what in ("image", "pdf"):
+        return whatsapp.send_media(**(m | {"file_type": what}), source=source)
+    return {"status": "error", "message": "Unknown message type"}, 400
 
 
 @login_required
 @staff_required
 @require_POST
-def settings_test_media(request):
-    result, code = whatsapp.send_media(**_media_args(request.POST), source="test")
+def settings_test_send(request):
+    data = request.POST.copy()
+    data.setdefault("subject", "Meltice Technology")
+    if not (data.get("text_name") or "").strip():
+        data["text_name"] = "Test message from the GPS tracker. WhatsApp alerts work."
+    result, _ = send_what(request.POST.get("what", "template"), data, "test")
     return JsonResponse(result)
 
 
-@api_view(["POST"])
-@permission_classes([permissions.IsAdminUser])
-def api_send_text(request):
-    """Send a WhatsApp text: {"to_number", "subject", "customer_name", "text_name"}."""
-    result, code = whatsapp.send_text(**_text_args(request.data if isinstance(request.data, dict) else {}))
-    return Response(result, status=code)
+def _api(what_fn):
+    @api_view(["POST"])
+    @permission_classes([permissions.IsAdminUser])
+    def view(request):
+        data = request.data if isinstance(request.data, dict) else {}
+        result, code = send_what(what_fn(data), data, "api")
+        return Response(result, status=code)
+    return view
 
 
-@api_view(["POST"])
-@permission_classes([permissions.IsAdminUser])
-def api_send_media(request):
-    """Send a WhatsApp image or PDF with caption: {"to_number", "customer_name", "file_type", "file_url", "message"}."""
-    result, code = whatsapp.send_media(**_media_args(request.data if isinstance(request.data, dict) else {}))
-    return Response(result, status=code)
+# Text: the approved prod_report template unless Settings say plain text, or the body says "mode": "text".
+api_send_text = _api(lambda d: "text" if (d.get("mode") or whatsapp.config()["meta_mode"]) == "text" else "template")
+api_send_template = _api(lambda d: "template")
+api_send_message = _api(lambda d: "text")
+# Files: an image goes as an image with caption; a PDF goes through the certificate_ready_docs template
+# unless the body says "template": false (then a plain document with caption).
+api_send_media = _api(lambda d: "image" if _media_args(d)["file_type"] == "image" else
+                      ("pdf" if d.get("template") in (False, "false", "0") else "pdf_template"))
+api_send_image = _api(lambda d: "image")
 
 
 def recent_messages(limit: int = 30):

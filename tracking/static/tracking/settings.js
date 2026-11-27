@@ -104,29 +104,25 @@
     });
   }
 
-  // Meta Cloud API: the two functions (text alert, image / PDF with caption)
-  const tText = $("wtSendText");
-  if (tText) {
-    const send = async (btn, path, fields) => {
-      const res = $("wtResult");
-      show(res, null, "Sending…");
-      btn.disabled = true;
-      try {
-        const r = await fetch($("waForm").action + path, {method: "POST", credentials: "same-origin", body: new URLSearchParams(fields),
-          headers: {"X-CSRFToken": csrf, "Accept": "application/json"}});
-        const d = await r.json();
-        const ok = d.status === "success";
-        const id = ok && d.meta_response && d.meta_response.messages ? d.meta_response.messages[0].id : "";
-        show(res, ok, ok ? `Meta accepted it (${id}). Check the phone; delivery shows in the list below once the webhook is set up.` : (d.message || "Failed") + (d.status_code ? ` (HTTP ${d.status_code})` : ""));
-        $("wtRawWrap").hidden = false;
-        $("wtRaw").textContent = JSON.stringify(d, null, 2);
-      } catch (e) {
-        show(res, false, "Test failed: " + e.message);
-      } finally { btn.disabled = false; }
-    };
-    const base = () => ({to_number: $("wt_to").value, customer_name: $("wt_name").value});
-    tText.addEventListener("click", () => send(tText, "test-text/", {...base(), subject: $("wt_subject").value, text_name: $("wt_text").value}));
-    $("wtSendMedia").addEventListener("click", () => send($("wtSendMedia"), "test-media/", {...base(), file_type: $("wt_type").value,
-      file_url: $("wt_url").value, message: $("wt_caption").value}));
-  }
+  // Meta Cloud API test buttons: template / plain text / image / PDF template / plain PDF
+  const sendBtns = document.querySelectorAll(".wt-send");
+  sendBtns.forEach(btn => btn.addEventListener("click", async () => {
+    const res = $("wtResult");
+    show(res, null, "Sending…");
+    sendBtns.forEach(b => { b.disabled = true; });
+    const fields = {what: btn.dataset.what, to_number: $("wt_to").value, customer_name: $("wt_name").value,
+      subject: $("wt_subject").value, text_name: $("wt_text").value, message: $("wt_text").value, file_url: $("wt_url").value};
+    try {
+      const r = await fetch($("waForm").action + "test-send/", {method: "POST", credentials: "same-origin", body: new URLSearchParams(fields),
+        headers: {"X-CSRFToken": csrf, "Accept": "application/json"}});
+      const d = await r.json();
+      const ok = d.status === "success";
+      const id = ok && d.meta_response && d.meta_response.messages ? d.meta_response.messages[0].id : "";
+      show(res, ok, ok ? `Meta accepted it (${id}). Check the phone; delivered / read shows in the log below once the webhook is set up.` : (d.message || "Failed") + (d.status_code ? ` (HTTP ${d.status_code})` : ""));
+      $("wtRawWrap").hidden = false;
+      $("wtRaw").textContent = JSON.stringify(d, null, 2);
+    } catch (e) {
+      show(res, false, "Test failed: " + e.message);
+    } finally { sendBtns.forEach(b => { b.disabled = false; }); }
+  }));
 })();

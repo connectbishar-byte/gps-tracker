@@ -30,6 +30,7 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 
 from . import integrations
 
@@ -43,6 +44,14 @@ PROVIDERS = {
 }
 META_API_VERSION = os.environ.get("WHATSAPP_META_API_VERSION", "v22.0")
 TIMEOUT = 15
+# Bishar's approved Meta templates (en_US):
+#   prod_report             header {{head_name}} = subject · body {{custname}} = customer name, {{textname}} = message
+#   certificate_ready_docs  header = document (link + filename) · body {{1}} = customer name, {{2}} = message
+DEFAULT_TEXT_TEMPLATE = "prod_report"
+DEFAULT_DOC_TEMPLATE = "certificate_ready_docs"
+META_MODES = {"template": "Approved templates (reaches anyone, any time)",
+              "text": "Plain text (only within 24 h of the person writing to you)"}
+TEMPLATE_PARAM_MAX = 750
 MAX_RECIPIENTS = 20
 
 
@@ -52,7 +61,11 @@ def config() -> dict:
         "provider": g("whatsapp_provider") if g("whatsapp_provider") in PROVIDERS else "",
         "recipients": g("whatsapp_recipients"),
         "meta_token": g("whatsapp_meta_token"), "meta_phone_id": g("whatsapp_meta_phone_id"),
-        "meta_template": g("whatsapp_meta_template"), "meta_lang": g("whatsapp_meta_lang") or "en_US",
+        "meta_mode": g("whatsapp_meta_mode") if g("whatsapp_meta_mode") in META_MODES else "template",
+        "meta_template": g("whatsapp_meta_template") or DEFAULT_TEXT_TEMPLATE,
+        "meta_doc_template": g("whatsapp_meta_doc_template") or DEFAULT_DOC_TEMPLATE,
+        "meta_alert_name": g("whatsapp_meta_alert_name") or "Team",
+        "meta_lang": g("whatsapp_meta_lang") or "en_US",
         "meta_api_version": g("whatsapp_meta_api_version"),
         "twilio_sid": g("whatsapp_twilio_sid"), "twilio_token": g("whatsapp_twilio_token"),
         "twilio_from": g("whatsapp_twilio_from"),
@@ -189,21 +202,35 @@ def meta_post(payload: dict, cfg: dict | None = None, source: str = "", timeout:
     if ok and isinstance(meta_response, dict):
         wamid = ((meta_response.get("messages") or [{}])[0] or {}).get("id", "")
     detail = "" if ok else (_error_text(raw) or f"HTTP {code}")
-    _log("out", source, payload, "accepted" if ok else "failed", code, detail, wamid)
-    result = {"status": "success" if ok else "error", "status_code": code, "request_payload": payload,
-              "meta_response": meta_response}
+    request_id = str(uuid.uuid4())
+    _log("out", source, payload, "accepted" if ok else "failed", code, detail, wamid,
+         response=meta_response if isinstance(meta_response, (dict, list)) else {"text": str(meta_response)[:2000]},
+         request_id=request_id, url=_meta_url(cfg), token=mask_token(cfg["meta_token"]))
+    result = {"status": "success" if ok else "error", "request_id": request_id, "status_code": code,
+              "request_payload": payload, "meta_response": meta_response}
     if not ok:
         result["message"] = detail
     return result, code
 
 
-def _log(direction, source, payload, status, code=None, detail="", wamid="", number="", kind=""):
+def mask_token(token: str) -> str:
+    if not token:
+        return ""
+    if len(token) <= 10:
+        return "*" * len(token)
+    return token[:6] + "*" * min(20, len(token) - 10) + token[-4:]
+
+
+def _log(direction, source, payload, status, code=None, detail="", wamid="", number="", kind="", response=None,
+         request_id="", url="", token=""):
     try:
         from .models import WhatsAppMessage
+        kind = kind or payload.get("type", "")
         WhatsAppMessage.objects.create(
             direction=direction, source=source[:12], number=(number or payload.get("to", ""))[:20],
-            kind=(kind or payload.get("type", ""))[:12], wamid=wamid[:200], status=status[:12], status_code=code,
-            detail=str(detail)[:500], payload=payload)
+            kind=kind[:12], wamid=wamid[:200], status=status[:12], status_code=code,
+            detail=str(detail)[:500], payload=payload, response=response or {}, request_id=request_id[:40],
+            meta={"url": url, "authorization": f"Bearer {token}"} if url else {})
     except Exception:  # noqa: BLE001 - logging must never break sending
         log.exception("could not log WhatsApp message")
 
@@ -257,6 +284,59 @@ def send_media(to_number, customer_name: str = "", file_url: str = "", message: 
     return result, code
 
 
+def _param(value: str, fallback: str = "") -> str:
+    """Template parameters may not contain new lines, tabs or runs of spaces, and may not be empty."""
+    v = re.sub(r"\s+", " ", str(value or "")).strip() or fallback
+    return v[:TEMPLATE_PARAM_MAX]
+
+
+def send_template_text(to_number, subject: str = "", customer_name: str = "", text_name: str = "", cfg=None,
+                       source: str = "api") -> tuple[dict, int]:
+    """Approved template prod_report: header head_name = subject, body custname / textname (Bishar's
+    send_named_template_message). Reaches the person even if they never wrote to the business number."""
+    cfg = cfg or config()
+    to = clean_number(to_number)
+    if not NUMBER_RE.fullmatch(to):
+        return {"status": "error", "message": "Valid international mobile number required"}, 400
+    if not str(text_name or "").strip():
+        return {"status": "error", "message": "text_name is required"}, 400
+    payload = {"messaging_product": "whatsapp", "to": to, "type": "template", "template": {
+        "name": cfg["meta_template"], "language": {"code": cfg["meta_lang"] or "en_US"},
+        "components": [
+            {"type": "header", "parameters": [{"type": "text", "parameter_name": "head_name",
+                                               "text": _param(subject, "Meltice GPS Tracker")[:60]}]},
+            {"type": "body", "parameters": [
+                {"type": "text", "parameter_name": "custname", "text": _param(customer_name, cfg["meta_alert_name"])},
+                {"type": "text", "parameter_name": "textname", "text": _param(text_name)}]},
+        ]}}
+    return meta_post(payload, cfg, source)
+
+
+def send_template_document(to_number, customer_name: str = "", pdf_url: str = "", message: str = "", cfg=None,
+                           source: str = "api", filename: str = "") -> tuple[dict, int]:
+    """Approved template certificate_ready_docs: document header (PDF link + filename), body {{1}} = customer name,
+    {{2}} = message (Bishar's send_certificate_pdf_n8n)."""
+    cfg = cfg or config()
+    to = clean_number(to_number)
+    if not NUMBER_RE.fullmatch(to):
+        return {"status": "error", "message": "Valid international mobile number required"}, 400
+    pdf_url = str(pdf_url or "").strip()
+    if not pdf_url.startswith("https://"):
+        return {"status": "error", "message": "Public HTTPS pdf_url required"}, 400
+    name = _param(customer_name, "Customer")
+    payload = {"messaging_product": "whatsapp", "to": to, "type": "template", "template": {
+        "name": cfg["meta_doc_template"], "language": {"code": cfg["meta_lang"] or "en_US"},
+        "components": [
+            {"type": "header", "parameters": [{"type": "document", "document": {
+                "link": pdf_url, "filename": filename or f"{name}_Certificate.pdf"}}]},
+            {"type": "body", "parameters": [{"type": "text", "text": name},
+                                            {"type": "text", "text": _param(message, "Your document is ready.")}]},
+        ]}}
+    result, code = meta_post(payload, cfg, source)
+    result["file_type"] = "pdf"
+    return result, code
+
+
 def handle_webhook(body: dict) -> int:
     """Store the delivery statuses and incoming messages Meta posts to the webhook. Returns how many were stored."""
     n = 0
@@ -271,12 +351,12 @@ def handle_webhook(body: dict) -> int:
                 if any(str(e.get("code")) == "131047" for e in errs):
                     detail += (" (More than 24 h since the customer last wrote: use an approved template for "
                                "messages outside that window.)")
-                _log("status", "webhook", {"status": st.get("status"), "id": st.get("id")}, str(st.get("status", "")),
+                _log("status", "webhook", st, str(st.get("status", "")),
                      None, detail, st.get("id", ""), st.get("recipient_id", ""), "status")
                 n += 1
             for m in value.get("messages", []) or []:
                 text = (m.get("text") or {}).get("body", "") or m.get("type", "")
-                _log("in", "webhook", {"type": m.get("type"), "text": text[:300]}, "received", None, text[:500],
+                _log("in", "webhook", m, "received", None, text[:500],
                      m.get("id", ""), m.get("from", ""), m.get("type", ""))
                 n += 1
     return n
@@ -293,13 +373,10 @@ def check_signature(raw: bytes, header: str) -> bool:
     return hmac.compare_digest(expected, header or "")
 
 
-def _send_meta(cfg, phone, text):
+def _send_meta(cfg, phone, text, subject: str = ""):
     to = phone.lstrip("+")
-    if cfg["meta_template"]:
-        payload = {"messaging_product": "whatsapp", "to": to, "type": "template", "template": {
-            "name": cfg["meta_template"], "language": {"code": cfg["meta_lang"] or "en_US"},
-            "components": [{"type": "body", "parameters": [{"type": "text", "text": _single_line(text)}]}]}}
-        res, code = meta_post(payload, cfg, "alert")
+    if cfg["meta_mode"] == "template":
+        res, code = send_template_text(to, subject or "GPS Alert", cfg["meta_alert_name"], text, cfg=cfg, source="alert")
     else:
         res, code = send_text(to, text=text, cfg=cfg, source="alert")
     if res["status"] == "success":
@@ -307,7 +384,7 @@ def _send_meta(cfg, phone, text):
     body = res.get("message", f"HTTP {code}")
     if "131047" in body or "24 hours" in body or "re-engagement" in body.lower():
         body += (" WhatsApp only delivers plain messages within 24 h of the recipient's last message to your number."
-                 " Enter an approved template name to send alerts at any time.")
+                 " Switch Meta → Send alerts as to approved templates.")
     return False, body
 
 
@@ -343,7 +420,7 @@ def _send_callmebot(cfg, phone, text, key):
     return False, body
 
 
-def send(text: str, recipients: str | None = None, cfg: dict | None = None) -> dict:
+def send(text: str, recipients: str | None = None, cfg: dict | None = None, subject: str = "") -> dict:
     """Send `text` to every recipient (the zone's own list if given, else the default list)."""
     cfg = cfg or config()
     if not cfg["provider"]:
@@ -356,7 +433,7 @@ def send(text: str, recipients: str | None = None, cfg: dict | None = None) -> d
     for r in recips:
         try:
             if cfg["provider"] == "meta":
-                ok, detail = _send_meta(cfg, r["phone"], text)
+                ok, detail = _send_meta(cfg, r["phone"], text, subject)
             elif cfg["provider"] == "twilio":
                 ok, detail = _send_twilio(cfg, r["phone"], text)
             else:

@@ -92,18 +92,23 @@
         <div class="wa-box mb-4 pb-3 border-bottom" data-provider="meta">
           <h6 class="mb-1">Meta WhatsApp Cloud API <span class="badge text-bg-primary">business</span></h6>
           <p class="small text-muted mb-2">From <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener">developers.facebook.com</a> → your app →
-            WhatsApp → API setup. Use a permanent System User token. WhatsApp only lets a business start a chat with an approved
-            message template: create a Utility template with one variable, e.g. <code>Meltice GPS alert: {% templatetag openvariable %}1{% templatetag closevariable %}</code>, and enter its name.</p>
+            WhatsApp → API setup. Plain text reaches a person only within 24 h of them writing to your number; approved templates reach anyone, any time.</p>
           {% include "tracking/_integration_field.html" with f=w.whatsapp_meta_token placeholder="EAAG…" %}
           <div class="row g-2">
             <div class="col-sm-5"><label class="form-label small mb-1" for="wa_phone_id">Phone number ID</label>
               <input class="form-control form-control-sm font-monospace" id="wa_phone_id" name="whatsapp_meta_phone_id" value="{{ w.whatsapp_meta_phone_id.value }}" placeholder="1234567890…"></div>
-            <div class="col-sm-4"><label class="form-label small mb-1" for="wa_tpl">Template name</label>
-              <input class="form-control form-control-sm font-monospace" id="wa_tpl" name="whatsapp_meta_template" value="{{ w.whatsapp_meta_template.value }}" placeholder="gps_alert"></div>
-            <div class="col-sm-3"><label class="form-label small mb-1" for="wa_lang">Language</label>
-              <input class="form-control form-control-sm font-monospace" id="wa_lang" name="whatsapp_meta_lang" value="{{ w.whatsapp_meta_lang.value }}" placeholder="en_US"></div>
+            <div class="col-sm-7"><label class="form-label small mb-1" for="wa_mode">Send alerts as</label>
+              <select class="form-select form-select-sm" id="wa_mode" name="whatsapp_meta_mode">{% for k, v in wa_modes.items %}<option value="{{ k }}" {% if k == wa_mode %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></div>
+            <div class="col-sm-5"><label class="form-label small mb-1" for="wa_tpl">Text template <span class="text-body-secondary">(head_name, custname, textname)</span></label>
+              <input class="form-control form-control-sm font-monospace" id="wa_tpl" name="whatsapp_meta_template" value="{{ w.whatsapp_meta_template.value|default:wa_text_template }}"></div>
+            <div class="col-sm-5"><label class="form-label small mb-1" for="wa_doc_tpl">PDF template <span class="text-body-secondary">(document, {% templatetag openvariable %}1{% templatetag closevariable %} name, {% templatetag openvariable %}2{% templatetag closevariable %} text)</span></label>
+              <input class="form-control form-control-sm font-monospace" id="wa_doc_tpl" name="whatsapp_meta_doc_template" value="{{ w.whatsapp_meta_doc_template.value|default:wa_doc_template }}"></div>
+            <div class="col-sm-2"><label class="form-label small mb-1" for="wa_lang">Language</label>
+              <input class="form-control form-control-sm font-monospace" id="wa_lang" name="whatsapp_meta_lang" value="{{ w.whatsapp_meta_lang.value|default:'en_US' }}"></div>
+            <div class="col-sm-5"><label class="form-label small mb-1" for="wa_alert_name">Name used in alerts (custname)</label>
+              <input class="form-control form-control-sm" id="wa_alert_name" name="whatsapp_meta_alert_name" value="{{ w.whatsapp_meta_alert_name.value|default:'Team' }}" maxlength="60"></div>
           </div>
-          <div class="form-text small">No template name: a plain message is sent, which WhatsApp delivers only within 24 h of the recipient writing to your business number.</div>
+          <div class="form-text small">Alerts use the text template with head_name = the rule name, custname = the name above, textname = the alert text.</div>
           <div class="row g-2 mt-1">
             <div class="col-sm-5"><label class="form-label small mb-1" for="wa_verify">Webhook verify token</label>
               <input class="form-control form-control-sm font-monospace" id="wa_verify" name="whatsapp_meta_verify_token" value="{{ w.whatsapp_meta_verify_token.value }}" placeholder="{{ wa_verify_default }}"></div>
@@ -116,7 +121,7 @@
             (blank = <code>{{ wa_verify_default }}</code>), subscribe to <b>messages</b>. Meta then reports delivered / read / failed for every message below.</div>
 
           <div class="wa-test p-2 rounded border">
-            <div class="fw-semibold small mb-2"><i class="bi bi-send-check"></i> Test the two functions <span class="text-body-secondary fw-normal">(save first; uses the Meta fields above)</span></div>
+            <div class="fw-semibold small mb-2"><i class="bi bi-send-check"></i> Test sending <span class="text-body-secondary fw-normal">(save first; uses the Meta fields above)</span></div>
             <div class="row g-2 mb-2">
               <div class="col-sm-4"><label class="form-label small mb-1" for="wt_to">To number</label>
                 <input class="form-control form-control-sm font-monospace" id="wt_to" placeholder="971507864838"></div>
@@ -125,24 +130,22 @@
               <div class="col-sm-4"><label class="form-label small mb-1" for="wt_subject">Subject</label>
                 <input class="form-control form-control-sm" id="wt_subject" value="Meltice Technology"></div>
             </div>
-            <label class="form-label small mb-1" for="wt_text">1 · Text alert</label>
-            <div class="input-group input-group-sm mb-1">
-              <input class="form-control" id="wt_text" value="Your daily report is ready.">
-              <button type="button" class="btn btn-outline-success" id="wtSendText"><i class="bi bi-chat-text"></i> Send text</button>
-            </div>
-            <label class="form-label small mb-1 mt-2" for="wt_url">2 · Image or PDF with caption</label>
-            <div class="input-group input-group-sm mb-1">
-              <select class="form-select" id="wt_type" style="max-width:6.5rem"><option value="image">Image</option><option value="pdf">PDF</option></select>
-              <input class="form-control" id="wt_url" placeholder="https://yourdomain.com/certificate.jpg">
-            </div>
-            <div class="input-group input-group-sm mb-1">
-              <input class="form-control" id="wt_caption" value="Your certificate is ready.">
-              <button type="button" class="btn btn-outline-success" id="wtSendMedia"><i class="bi bi-image"></i> Send file</button>
+            <label class="form-label small mb-1" for="wt_text">Message (textname / caption)</label>
+            <input class="form-control form-control-sm mb-2" id="wt_text" value="Your daily report is ready.">
+            <label class="form-label small mb-1" for="wt_url">File link (https, for image / PDF)</label>
+            <input class="form-control form-control-sm mb-2" id="wt_url" placeholder="https://yourdomain.com/certificate.pdf">
+            <div class="d-flex flex-wrap gap-2">
+              <button type="button" class="btn btn-sm btn-success wt-send" data-what="template"><i class="bi bi-patch-check"></i> Template message</button>
+              <button type="button" class="btn btn-sm btn-outline-success wt-send" data-what="text"><i class="bi bi-chat-text"></i> Plain text</button>
+              <button type="button" class="btn btn-sm btn-outline-success wt-send" data-what="image"><i class="bi bi-image"></i> Image</button>
+              <button type="button" class="btn btn-sm btn-success wt-send" data-what="pdf_template"><i class="bi bi-file-earmark-pdf"></i> PDF template</button>
+              <button type="button" class="btn btn-sm btn-outline-success wt-send" data-what="pdf"><i class="bi bi-file-earmark"></i> Plain PDF</button>
             </div>
             <div class="small mt-2" id="wtResult"></div>
             <details class="small mt-1" id="wtRawWrap" hidden><summary>Meta's full answer</summary><pre class="small mb-0" id="wtRaw" style="white-space:pre-wrap;max-height:240px;overflow:auto"></pre></details>
-            <div class="form-text small">The same functions are on the REST API: <code>POST /api/v1/whatsapp/send-text/</code> and
-              <code>/api/v1/whatsapp/send-media/</code> (admin token). See <a href="{% url 'api_docs' %}">API docs</a>.</div>
+            <div class="form-text small">Same on the REST API (admin token): <code>POST /api/v1/whatsapp/send-text/</code>,
+              <code>send-template/</code>, <code>send-message/</code>, <code>send-media/</code>, <code>send-certificate/</code>,
+              <code>send-image-message/</code>. See <a href="{% url 'api_docs' %}">API docs</a>.</div>
           </div>
         </div>
         <div class="wa-box mb-4 pb-3 border-bottom" data-provider="twilio">
@@ -165,17 +168,24 @@
     </div>
   </form>
   {% if wa_messages %}
-  <div class="card-footer p-0">
-    <div class="small fw-semibold px-3 pt-2">Recent WhatsApp messages (Meta)</div>
-    <div class="table-responsive" style="max-height:260px"><table class="table table-sm small mb-0">
-      <thead><tr><th>Time</th><th></th><th>Number</th><th>Type</th><th>Status</th><th>Detail</th></tr></thead><tbody>
-      {% for m in wa_messages %}<tr>
-        <td class="text-nowrap">{{ m.created_utc|date:"d M H:i:s" }}</td>
-        <td>{% if m.direction == "out" %}<i class="bi bi-arrow-up-right" title="Sent"></i>{% elif m.direction == "in" %}<i class="bi bi-arrow-down-left" title="Received"></i>{% else %}<i class="bi bi-check2-all" title="Delivery status"></i>{% endif %} {{ m.source }}</td>
-        <td class="font-monospace">{{ m.number }}</td><td>{{ m.kind }}</td>
-        <td><span class="badge text-bg-{% if m.status == 'failed' %}danger{% elif m.status == 'read' or m.status == 'delivered' %}success{% elif m.status == 'received' %}info{% else %}secondary{% endif %}">{{ m.status }}</span></td>
-        <td>{{ m.detail|truncatechars:160 }}</td></tr>{% endfor %}
-    </tbody></table></div>
+  <div class="card-footer p-0" id="waLog">
+    <div class="small fw-semibold px-3 pt-2 d-flex justify-content-between"><span>WhatsApp log: sent messages and webhook events (newest first)</span>
+      <a href="{% url 'settings' %}#waLog" onclick="location.reload()">Refresh</a></div>
+    <div style="max-height:420px;overflow-y:auto">
+      {% for m in wa_messages %}<details class="wa-log border-top px-3 py-1 small">
+        <summary class="d-flex flex-wrap gap-2 align-items-center">
+          <span class="text-nowrap text-body-secondary">{{ m.created_utc|date:"d M H:i:s" }}</span>
+          {% if m.direction == "out" %}<i class="bi bi-arrow-up-right" title="Sent"></i>{% elif m.direction == "in" %}<i class="bi bi-arrow-down-left" title="Received"></i>{% else %}<i class="bi bi-check2-all" title="Delivery status (webhook)"></i>{% endif %}
+          <span>{{ m.source }}</span><span class="font-monospace">{{ m.number }}</span><span>{{ m.kind }}{% if m.template %} · {{ m.template }}{% endif %}</span>
+          <span class="badge text-bg-{% if m.status == 'failed' %}danger{% elif m.status == 'read' or m.status == 'delivered' %}success{% elif m.status == 'received' %}info{% else %}secondary{% endif %}">{{ m.status }}{% if m.status_code %} · {{ m.status_code }}{% endif %}</span>
+          <span class="text-truncate" style="max-width:420px">{{ m.detail }}</span>
+        </summary>
+        {% if m.meta_json %}<div class="mt-1"><b>Request</b> <span class="font-monospace">{{ m.meta_json }}</span></div>{% endif %}
+        {% if m.request_id %}<div><b>Request ID</b> <span class="font-monospace">{{ m.request_id }}</span></div>{% endif %}
+        <div class="mt-1"><b>{% if m.direction == "out" %}Payload{% else %}Webhook event{% endif %}</b><pre class="wa-json">{{ m.payload_json }}</pre></div>
+        {% if m.response_json %}<div><b>Meta's answer</b><pre class="wa-json">{{ m.response_json }}</pre></div>{% endif %}
+      </details>{% endfor %}
+    </div>
   </div>
   {% endif %}
 </div>
