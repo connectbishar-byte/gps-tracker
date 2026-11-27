@@ -35,8 +35,21 @@ FIELDS = {
     "anthropic_model": ("Claude model", "ANTHROPIC_MODEL", False),
     "openai_api_key": ("OpenAI API key", "OPENAI_API_KEY", True),
     "openai_model": ("OpenAI model", "OPENAI_MODEL", False),
+    # WhatsApp alerts (geofences). Edited on their own card, Settings → WhatsApp alerts; see tracking/whatsapp.py.
+    "whatsapp_provider": ("WhatsApp provider", "FLEET_WHATSAPP_PROVIDER", False),
+    "whatsapp_recipients": ("Alert recipients", "FLEET_WHATSAPP_RECIPIENTS", False),
+    "whatsapp_meta_token": ("Meta access token", "WHATSAPP_META_TOKEN", True),
+    "whatsapp_meta_phone_id": ("Meta phone number ID", "WHATSAPP_META_PHONE_ID", False),
+    "whatsapp_meta_template": ("Meta template name", "WHATSAPP_META_TEMPLATE", False),
+    "whatsapp_meta_lang": ("Meta template language", "WHATSAPP_META_LANG", False),
+    "whatsapp_twilio_sid": ("Twilio Account SID", "TWILIO_ACCOUNT_SID", False),
+    "whatsapp_twilio_token": ("Twilio auth token", "TWILIO_AUTH_TOKEN", True),
+    "whatsapp_twilio_from": ("Twilio WhatsApp sender", "TWILIO_WHATSAPP_FROM", False),
+    "whatsapp_callmebot_key": ("CallMeBot API key", "CALLMEBOT_API_KEY", True),
 }
-CACHE_KEY = "integrations:v1"
+# fields that belong to the WhatsApp card, not the Integrations card
+WHATSAPP_FIELDS = [n for n in FIELDS if n.startswith("whatsapp_")]
+CACHE_KEY = "integrations:v2"
 CACHE_SECONDS = 60
 
 

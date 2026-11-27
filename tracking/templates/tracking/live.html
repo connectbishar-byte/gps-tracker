@@ -31,6 +31,7 @@
 (function () {
   const map = L.map("map").setView([24.45, 54.6], 10);
   Fleet.baseLayers(map);
+  Fleet.geofenceOverlay(map);
   const markers = {};
   let devices = [], filter = "all", selected = null, follow = false, fitted = false;
 

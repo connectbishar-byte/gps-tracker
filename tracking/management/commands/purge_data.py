@@ -21,7 +21,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from tracking import ingest
-from tracking.models import AVLRecord, Connection, Device, IOValue, RawPacket
+from tracking.models import AVLRecord, Connection, Device, GeofenceEvent, IOValue, RawPacket
 
 LAST_RUN_KEY = "purge:last"
 
@@ -61,7 +61,7 @@ class Command(BaseCommand):
         devices = Device.objects.all()
         if o["device"]:
             devices = devices.filter(pk=o["device"])
-        summary = {"io": 0, "records": 0, "packets": 0, "connections": 0}
+        summary = {"io": 0, "records": 0, "packets": 0, "connections": 0, "geofence": 0}
         for d in devices:
             cutoff = now - timedelta(days=d.retention_days)
             n = {
@@ -73,12 +73,13 @@ class Command(BaseCommand):
                                            batch, dry)
             n["connections"] = _batched_delete(Connection.objects.filter(device=d, opened_utc__lt=cutoff,
                                                                          closed_utc__isnull=False), batch, dry)
+            n["geofence"] = _batched_delete(GeofenceEvent.objects.filter(device=d, timestamp_utc__lt=cutoff), batch, dry)
             for k, v in n.items():
                 summary[k] += v
             if any(n.values()):
                 self.stdout.write(f"{d.name}: keep {d.retention_days} days (before {cutoff:%Y-%m-%d %H:%M} UTC) - {verb} "
                                   f"{n['records']} records, {n['io']} parameter values, {n['packets']} raw packets, "
-                                  f"{n['connections']} connections")
+                                  f"{n['connections']} connections, {n['geofence']} geofence crossings")
         if not o["device"]:
             cutoff = now - timedelta(days=settings.FLEET["DEFAULT_RETENTION_DAYS"])
             orphan_p = _batched_delete(RawPacket.objects.filter(device__isnull=True, received_utc__lt=cutoff), batch, dry)

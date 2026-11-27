@@ -55,6 +55,77 @@
   </form>
 </div>
 {% endif %}
+{% if wa_fields %}{% with w=wa_fields %}
+<div class="card mb-3" id="whatsapp">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-whatsapp me-1"></i> WhatsApp alerts</span>
+    <span class="small {% if wa_status.ready %}text-success{% elif wa_status.provider %}text-warning-emphasis{% else %}text-muted{% endif %}">
+      {% if wa_status.ready %}Ready · {{ wa_status.label }}{% elif wa_status.provider %}Missing {{ wa_status.missing|join:", " }}{% else %}Off{% endif %}</span>
+  </div>
+  <form method="post" action="{% url 'settings_whatsapp' %}" autocomplete="off" class="card-body" id="waForm">
+    {% csrf_token %}
+    <p class="small text-muted">Sends a message when a vehicle enters or leaves a <a href="{% url 'geofences' %}">geofence</a>.
+      Pick one provider and fill in its fields. Crossings are logged on the Geofences page either way.</p>
+    <div class="row g-4">
+      <div class="col-lg-4">
+        <label class="form-label small mb-1" for="wa_provider">Provider</label>
+        <select class="form-select form-select-sm mb-2" id="wa_provider" name="whatsapp_provider">
+          {% for k, v in wa_providers.items %}<option value="{{ k }}" {% if k == w.whatsapp_provider.value %}selected{% endif %}>{{ v }}</option>{% endfor %}</select>
+        <label class="form-label small mb-1" for="wa_recipients">Send alerts to</label>
+        <textarea class="form-control form-control-sm font-monospace" id="wa_recipients" name="whatsapp_recipients" rows="3" maxlength="2000"
+          placeholder="+971501234567&#10;+971551234567">{{ w.whatsapp_recipients.value }}</textarea>
+        <div class="form-text small">International format, one per line. A zone can have its own numbers too.</div>
+        <div class="d-flex gap-2 align-items-center mt-3">
+          <button type="button" class="btn btn-sm btn-outline-success text-nowrap flex-shrink-0" id="testWhatsapp"><i class="bi bi-send"></i> Send test message</button>
+          <span class="small" id="whatsappResult"></span>
+        </div>
+        <div class="form-text small">Save first, then test. It goes to every number above.</div>
+      </div>
+      <div class="col-lg-8">
+        <div class="wa-box mb-4 pb-3 border-bottom" data-provider="callmebot">
+          <h6 class="mb-1">CallMeBot <span class="badge text-bg-success">quickest</span></h6>
+          <p class="small text-muted mb-2">Free, for alerts to your own phone. On each phone: add <b>+34 644 71 81 99</b> to contacts and send it
+            <code>I allow callmebot to send me messages</code> on WhatsApp. The bot replies with an API key. If several phones each have their
+            own key, write the numbers above as <code>+971501234567:KEY</code>.</p>
+          {% include "tracking/_integration_field.html" with f=w.whatsapp_callmebot_key placeholder="1234567" %}
+        </div>
+        <div class="wa-box mb-4 pb-3 border-bottom" data-provider="meta">
+          <h6 class="mb-1">Meta WhatsApp Cloud API <span class="badge text-bg-primary">business</span></h6>
+          <p class="small text-muted mb-2">From <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener">developers.facebook.com</a> → your app →
+            WhatsApp → API setup. Use a permanent System User token. WhatsApp only lets a business start a chat with an approved
+            message template: create a Utility template with one variable, e.g. <code>Meltice GPS alert: {% templatetag openvariable %}1{% templatetag closevariable %}</code>, and enter its name.</p>
+          {% include "tracking/_integration_field.html" with f=w.whatsapp_meta_token placeholder="EAAG…" %}
+          <div class="row g-2">
+            <div class="col-sm-5"><label class="form-label small mb-1" for="wa_phone_id">Phone number ID</label>
+              <input class="form-control form-control-sm font-monospace" id="wa_phone_id" name="whatsapp_meta_phone_id" value="{{ w.whatsapp_meta_phone_id.value }}" placeholder="1234567890…"></div>
+            <div class="col-sm-4"><label class="form-label small mb-1" for="wa_tpl">Template name</label>
+              <input class="form-control form-control-sm font-monospace" id="wa_tpl" name="whatsapp_meta_template" value="{{ w.whatsapp_meta_template.value }}" placeholder="gps_alert"></div>
+            <div class="col-sm-3"><label class="form-label small mb-1" for="wa_lang">Language</label>
+              <input class="form-control form-control-sm font-monospace" id="wa_lang" name="whatsapp_meta_lang" value="{{ w.whatsapp_meta_lang.value }}" placeholder="en"></div>
+          </div>
+          <div class="form-text small">No template name: a plain message is sent, which WhatsApp delivers only within 24 h of the recipient writing to your business number.</div>
+        </div>
+        <div class="wa-box mb-4 pb-3 border-bottom" data-provider="twilio">
+          <h6 class="mb-1">Twilio WhatsApp</h6>
+          <p class="small text-muted mb-2">From <a href="https://console.twilio.com" target="_blank" rel="noopener">console.twilio.com</a>. For a quick test use the
+            WhatsApp Sandbox (Messaging → Try it out): each phone first sends the sandbox's <code>join …</code> code to the Twilio number.</p>
+          <div class="row g-2">
+            <div class="col-sm-6"><label class="form-label small mb-1" for="wa_sid">Account SID</label>
+              <input class="form-control form-control-sm font-monospace" id="wa_sid" name="whatsapp_twilio_sid" value="{{ w.whatsapp_twilio_sid.value }}" placeholder="AC…"></div>
+            <div class="col-sm-6"><label class="form-label small mb-1" for="wa_from">WhatsApp sender</label>
+              <input class="form-control form-control-sm font-monospace" id="wa_from" name="whatsapp_twilio_from" value="{{ w.whatsapp_twilio_from.value }}" placeholder="+14155238886"></div>
+          </div>
+          {% include "tracking/_integration_field.html" with f=w.whatsapp_twilio_token placeholder="Auth token" %}
+        </div>
+      </div>
+    </div>
+    <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
+      <span class="small text-muted">Secret fields: leave empty to keep the saved value.</span>
+      <button class="btn btn-primary btn-sm"><i class="bi bi-check2"></i> Save WhatsApp settings</button>
+    </div>
+  </form>
+</div>
+{% endwith %}{% endif %}
 {% if assistant %}{% with a=assistant.cfg %}
 <div class="card mb-3" id="assistant">
   <div class="card-header d-flex justify-content-between align-items-center">
@@ -150,4 +221,4 @@
   </div>
 </div>
 {% endblock %}
-{% block scripts %}{% if integrations %}<script src="{% static 'tracking/settings.js' %}?v={{ ASSET_V }}"></script>{% endif %}{% endblock %}
+{% block scripts %}{% if integrations or wa_fields %}<script src="{% static 'tracking/settings.js' %}?v={{ ASSET_V }}"></script>{% endif %}{% endblock %}

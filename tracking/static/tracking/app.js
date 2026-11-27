@@ -104,6 +104,22 @@
       if (F._googleFailed) F._dropGoogle();
       return layers;
     },
+    // Geofence zones as a switchable overlay ("Geofences" in the layers menu), drawn under the vehicles.
+    async geofenceOverlay(map) {
+      const m = F._maps.find(x => x.map === map);
+      try {
+        const d = await F.json("/geofences/api/");
+        const g = L.featureGroup();
+        for (const f of d.fences.filter(x => x.active)) {
+          const style = {color: f.color, weight: 2, fillOpacity: .1, interactive: true};
+          (f.shape === "circle" ? L.circle([f.center_lat, f.center_lon], {radius: f.radius_m, ...style}) : L.polygon(f.points, style))
+            .bindTooltip(F.esc(f.name), {sticky: true}).addTo(g);
+        }
+        g.addTo(map);
+        if (m && m.control) m.control.addOverlay(g, "Geofences");
+        return g;
+      } catch (e) { return null; }
+    },
     ROAD: "Road map (OpenStreetMap)",
     SAT: "Satellite + roads (Esri)",
     // Switch a map to another base layer by name (fires baselayerchange so the choice is remembered).

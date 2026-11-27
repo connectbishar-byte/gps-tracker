@@ -172,6 +172,16 @@ PAGES = {
                  "Import accepts files exported from here, to move places between systems."],
         "ask": ["How do I put these places on Google Maps?", "How do I save a place?"],
     },
+    "geofences": {
+        "title": "Geofences",
+        "about": "Zones on the map (circle or polygon). When a vehicle enters or leaves one, the crossing is logged and, "
+                 "if the zone asks for it, a WhatsApp alert is sent.",
+        "tips": ["Press New zone, pick Circle (click the centre, then the edge) or Polygon (click each corner), then Create zone.",
+                 "Drawing a zone around a vehicle that is already inside does not alert; the next crossing does.",
+                 "WhatsApp is set up on Settings → WhatsApp alerts. Send test message checks it.",
+                 "The Crossings tab shows every enter / leave and whether the WhatsApp message went out."],
+        "ask": ["How do I get WhatsApp alerts?", "Why didn't I get an alert?", "How do I draw a zone?"],
+    },
     "drivers": {
         "title": "Driver score",
         "about": "A score from 0 to 100 for each vehicle and Car view driver, from harsh acceleration, braking and "
@@ -366,6 +376,22 @@ def diagnostics(user=None, client: dict | None = None) -> list[dict]:
         add("info", "Google maps are not configured",
             "The maps use free OpenStreetMap / CARTO / Esri layers.",
             "Add a Google Maps key on Settings → Integrations for Google Road, Satellite and Hybrid.", "/settings/#integrations")
+    try:
+        from . import whatsapp
+        from .models import Geofence, GeofenceEvent
+        alerting = Geofence.objects.filter(active=True).exclude(alert_enter=False, alert_exit=False).exists()
+        wa = whatsapp.status()
+        if alerting and not wa["ready"]:
+            add("warn", "Geofence alerts can't be sent",
+                "At least one zone asks for a WhatsApp alert, but WhatsApp is "
+                + ("off." if not wa["provider"] else "missing " + ", ".join(wa["missing"]) + "."),
+                "Fill in Settings → WhatsApp alerts and press Send test message.", "/settings/#whatsapp")
+        failed = GeofenceEvent.objects.filter(alert_status="failed", created_utc__gte=now - timedelta(days=1)).first()
+        if failed:
+            add("warn", "A WhatsApp alert failed in the last 24 h", failed.alert_detail[:300],
+                "Check the provider fields on Settings → WhatsApp alerts and press Send test message.", "/geofences/")
+    except Exception:  # noqa: BLE001 - diagnostics must never fail
+        pass
     js = [str(e)[:200] for e in (client.get("js_errors") or [])][:3]
     if js:
         add("warn", "This page reported script errors", " | ".join(js),

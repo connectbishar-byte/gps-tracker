@@ -261,3 +261,73 @@ class SavedPlace(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class Geofence(models.Model):
+    """
+    A zone drawn on the Geofences page: a circle (centre + radius) or a polygon. The ingest pipeline checks
+    every new GPS fix against the active zones (tracking/geofence.py) and logs a GeofenceEvent when a vehicle
+    enters or leaves one; a WhatsApp alert is sent for the crossings the zone asks for (tracking/whatsapp.py).
+    """
+    SHAPES = [("circle", "Circle"), ("polygon", "Polygon")]
+
+    name = models.CharField(max_length=100)
+    shape = models.CharField(max_length=10, choices=SHAPES, default="circle")
+    center_lat = models.FloatField(null=True, blank=True, validators=[MinValueValidator(-90), MaxValueValidator(90)])
+    center_lon = models.FloatField(null=True, blank=True, validators=[MinValueValidator(-180), MaxValueValidator(180)])
+    radius_m = models.FloatField(null=True, blank=True, validators=[MinValueValidator(10), MaxValueValidator(500000)])
+    points = models.JSONField(default=list, blank=True, help_text="Polygon corners [[lat, lon], ...]")
+    color = models.CharField(max_length=9, default="#2563eb")
+    active = models.BooleanField(default=True)
+    alert_enter = models.BooleanField("Alert on enter", default=True)
+    alert_exit = models.BooleanField("Alert on exit", default=False)
+    devices = models.ManyToManyField(Device, blank=True, related_name="geofences",
+                                     help_text="Vehicles this zone watches. None selected = every vehicle.")
+    recipients = models.TextField(blank=True, help_text="WhatsApp numbers for this zone only (blank = the default list "
+                                                        "on Settings → WhatsApp alerts).")
+    notes = models.TextField(blank=True)
+    created_by = models.CharField(max_length=150, blank=True)
+    created_utc = models.DateTimeField(default=timezone.now)
+    updated_utc = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class GeofenceState(models.Model):
+    """Whether a vehicle is currently inside a zone (one row per zone and vehicle)."""
+    geofence = models.ForeignKey(Geofence, on_delete=models.CASCADE, related_name="states")
+    device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name="geofence_states")
+    inside = models.BooleanField(default=False)
+    since_utc = models.DateTimeField(null=True, blank=True)
+    last_fix_utc = models.DateTimeField(null=True, blank=True)
+    last_alert_utc = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["geofence", "device"], name="uniq_geofence_device")]
+
+
+class GeofenceEvent(models.Model):
+    """One crossing: a vehicle entered or left a zone. Kept for the vehicle's retention period."""
+    KINDS = [("enter", "Entered"), ("exit", "Left")]
+    ALERT = [("off", "No alert asked"), ("pending", "Sending"), ("sent", "Sent"), ("failed", "Failed"),
+             ("skipped", "Not sent")]
+
+    geofence = models.ForeignKey(Geofence, null=True, blank=True, on_delete=models.SET_NULL, related_name="events")
+    geofence_name = models.CharField(max_length=100)
+    device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name="geofence_events")
+    kind = models.CharField(max_length=5, choices=KINDS)
+    timestamp_utc = models.DateTimeField(db_index=True)
+    latitude = models.FloatField()
+    longitude = models.FloatField()
+    speed = models.IntegerField(default=0)
+    created_utc = models.DateTimeField(default=timezone.now)
+    alert_status = models.CharField(max_length=8, choices=ALERT, default="off")
+    alert_detail = models.CharField(max_length=500, blank=True)
+
+    class Meta:
+        ordering = ["-timestamp_utc", "-id"]
+        indexes = [models.Index(fields=["device", "timestamp_utc"], name="gfevent_device_ts")]

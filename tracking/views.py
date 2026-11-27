@@ -22,7 +22,7 @@ from django.views.decorators.http import require_POST
 
 import json
 
-from . import assistant, codec, driverscore, integrations, io_dictionary
+from . import assistant, codec, driverscore, geofence_views, integrations, io_dictionary
 from .models import AVLRecord, Connection, Device, RawPacket, ReceiverHeartbeat, TestRun, mask_imei
 
 
@@ -441,6 +441,7 @@ def settings_page(request):
         "assistant": _assistant_settings() if request.user.is_staff else None,
         "last_purge": _last_purge(),
         **(driverscore.settings_context() if request.user.is_staff else {}),
+        **(geofence_views.settings_context() if request.user.is_staff else {}),
     })
 
 
@@ -467,6 +468,8 @@ def settings_integrations(request):
     """Save integration settings. A blank field keeps the saved value; the Remove box clears it."""
     changed = []
     for name, (label, _env, _secret) in integrations.FIELDS.items():
+        if name in integrations.WHATSAPP_FIELDS:
+            continue  # saved by settings_whatsapp
         value = (request.POST.get(name) or "").strip()
         if request.POST.get("clear_" + name):
             integrations.save(name, "", request.user.get_username())
