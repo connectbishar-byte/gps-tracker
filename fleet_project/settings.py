@@ -224,6 +224,12 @@ FLEET = {
     # Data retention: default for new vehicles (each vehicle has its own value on its Device page);
     # also used for traffic that belongs to no vehicle (rejected / unknown IMEIs)
     "DEFAULT_RETENTION_DAYS": int(env("FLEET_DEFAULT_RETENTION_DAYS", "60")),
+    # Geofences: metres beyond the edge before a vehicle counts as having left (stops GPS jitter alerts),
+    # crossings older than this are logged but not sent by WhatsApp, and the minimum gap between two alerts
+    # for the same zone and vehicle
+    "GEOFENCE_HYSTERESIS_M": float(env("FLEET_GEOFENCE_HYSTERESIS_M", "30")),
+    "GEOFENCE_ALERT_MAX_AGE_MIN": float(env("FLEET_GEOFENCE_ALERT_MAX_AGE_MIN", "30")),
+    "GEOFENCE_ALERT_COOLDOWN_S": float(env("FLEET_GEOFENCE_ALERT_COOLDOWN_S", "60")),
 }
 
 LOG_DIR = Path(env("FLEET_LOG_DIR", BASE_DIR / "logs"))

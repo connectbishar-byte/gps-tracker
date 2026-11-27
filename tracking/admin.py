@@ -1,6 +1,7 @@
 from django.contrib import admin
 
-from .models import AVLRecord, Connection, Device, IOValue, RawPacket, ReceiverHeartbeat, TestRun, PortEvent
+from .models import (AVLRecord, Connection, Device, Geofence, GeofenceEvent, IOValue, PortEvent, RawPacket,
+                     ReceiverHeartbeat, TestRun)
 
 
 @admin.register(Device)
@@ -44,3 +45,17 @@ class PortEventAdmin(admin.ModelAdmin):
     list_filter = ("kind", "level")
     search_fields = ("imei", "remote", "message", "hex")
     readonly_fields = [f.name for f in PortEvent._meta.fields]
+
+
+@admin.register(Geofence)
+class GeofenceAdmin(admin.ModelAdmin):
+    list_display = ("name", "shape", "active", "alert_enter", "alert_exit", "radius_m", "updated_utc")
+    list_filter = ("active", "shape")
+    filter_horizontal = ("devices",)
+
+
+@admin.register(GeofenceEvent)
+class GeofenceEventAdmin(admin.ModelAdmin):
+    list_display = ("timestamp_utc", "device", "kind", "geofence_name", "speed", "alert_status")
+    list_filter = ("kind", "alert_status")
+    readonly_fields = [f.name for f in GeofenceEvent._meta.fields]

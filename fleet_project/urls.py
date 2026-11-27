@@ -3,7 +3,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
-from tracking import driverscore, vehicledash, views
+from tracking import driverscore, geofence_views, vehicledash, views
 
 urlpatterns = [
     path("", views.dashboard, name="dashboard"),
@@ -23,6 +23,13 @@ urlpatterns = [
     path("settings/integrations/test-openai/", views.settings_test_openai, name="settings_test_openai"),
     path("settings/integrations/test-anthropic/", views.settings_test_anthropic, name="settings_test_anthropic"),
     path("settings/assistant/", views.settings_assistant, name="settings_assistant"),
+    path("settings/whatsapp/", geofence_views.settings_whatsapp, name="settings_whatsapp"),
+    path("settings/whatsapp/test/", geofence_views.settings_whatsapp_test, name="settings_whatsapp_test"),
+    path("geofences/", geofence_views.geofences_page, name="geofences"),
+    path("geofences/api/", geofence_views.api_geofences, name="api_geofences"),
+    path("geofences/api/<int:pk>/", geofence_views.api_geofence_update, name="api_geofence_update"),
+    path("geofences/api/<int:pk>/delete/", geofence_views.api_geofence_delete, name="api_geofence_delete"),
+    path("geofences/events/", geofence_views.api_geofence_events, name="api_geofence_events"),
     path("terminal/", views.terminal, name="terminal"),
     path("", include("tracking.places_urls")),  # car view /drive/ and saved places /places/
     path("drivers/", driverscore.drivers_page, name="drivers"),

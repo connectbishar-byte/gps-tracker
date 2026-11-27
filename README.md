@@ -229,6 +229,29 @@ the receiver, power the device and watch the terminal; it is registered automati
 CSV (My Maps or Excel) or GeoJSON; **Import** a KML / CSV / GeoJSON file back in. Users see their own places,
 staff see everyone's. REST API: `/api/v1/places/`.
 
+## Geofences and WhatsApp alerts
+
+**Geofences** (left menu) is a map where admins draw zones: a **circle** (click the centre, then the edge) or a
+**polygon** (click each corner, then the first corner or *Finish*). Each zone chooses whether a WhatsApp message goes
+out when a vehicle **enters**, **leaves**, or both, which vehicles it watches (none ticked = all), and optionally its
+own WhatsApp numbers. Every crossing is logged on the **Crossings** tab with whether the message went out. Active
+zones are also drawn on the Live map (layers menu → *Geofences*).
+
+How it decides: every new GPS fix is checked as it arrives (`tracking/geofence.py`). A vehicle is *inside* as soon as a
+fix is inside, and *outside* again only once it is 30 m past the edge (`FLEET_GEOFENCE_HYSTERESIS_M`), so GPS jitter at
+the boundary does not send a stream of alerts. Drawing a zone around a vehicle that is already inside does not alert.
+Crossings replayed from the tracker's memory more than 30 min late are logged but not sent
+(`FLEET_GEOFENCE_ALERT_MAX_AGE_MIN`). Messages are sent in the background, so the tracker's ACK is never delayed.
+
+**Settings → WhatsApp alerts** picks the provider, the numbers (international format, one per line) and has a
+*Send test message* button:
+
+| Provider | What you need |
+| --- | --- |
+| CallMeBot (free, quickest) | On each phone send *I allow callmebot to send me messages* to +34 644 71 81 99 on WhatsApp; paste the API key it replies with. |
+| Meta WhatsApp Cloud API | Permanent access token + phone number ID (developers.facebook.com → app → WhatsApp → API setup), and an approved Utility template with one variable, e.g. `Meltice GPS alert: {{1}}`. |
+| Twilio WhatsApp | Account SID, auth token and WhatsApp sender number. Sandbox recipients first send the `join …` code. |
+
 ## Driver score sheet
 
 **Driver score** (`/drivers/`) rates how each vehicle and each Car view driver drove over a date range, from 0 to 100,

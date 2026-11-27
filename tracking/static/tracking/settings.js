@@ -1,7 +1,7 @@
 /* Settings page: test buttons for the Google Maps, Anthropic and OpenAI keys. */
 (function () {
   const $ = id => document.getElementById(id);
-  const csrf = document.querySelector("#integrations input[name=csrfmiddlewaretoken]").value;
+  const csrf = document.querySelector("input[name=csrfmiddlewaretoken]").value;
   const show = (el, ok, text) => {
     el.className = "small " + (ok === null ? "text-muted" : ok ? "text-success" : "text-danger");
     el.innerHTML = (ok === null ? '<span class="spinner-border spinner-border-sm me-1"></span>' :
@@ -83,4 +83,24 @@
       show($("openaiResult"), false, "Test failed: " + e.message);
     } finally { oBtn.disabled = false; }
   });
+
+  // WhatsApp: show only the chosen provider's fields; the test sends a real message to the saved numbers.
+  const prov = $("wa_provider");
+  if (prov) {
+    const sync = () => document.querySelectorAll(".wa-box").forEach(b => { b.hidden = prov.value ? b.dataset.provider !== prov.value : false; });
+    prov.addEventListener("change", sync); sync();
+    const wBtn = $("testWhatsapp");
+    wBtn.addEventListener("click", async () => {
+      show($("whatsappResult"), null, "Sending…");
+      wBtn.disabled = true;
+      try {
+        const r = await fetch($("waForm").action + "test/", {method: "POST", credentials: "same-origin",
+          headers: {"X-CSRFToken": csrf, "Accept": "application/json"}});
+        const d = await r.json();
+        show($("whatsappResult"), d.ok, d.ok ? `Sent. Check WhatsApp. ${d.detail}` : d.detail);
+      } catch (e) {
+        show($("whatsappResult"), false, "Test failed: " + e.message);
+      } finally { wBtn.disabled = false; }
+    });
+  }
 })();

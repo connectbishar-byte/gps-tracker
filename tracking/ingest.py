@@ -16,7 +16,7 @@ from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
 
-from . import codec, io_dictionary as iod
+from . import codec, geofence, io_dictionary as iod
 from .models import AVLRecord, Connection, Device, IOValue, PortEvent, RawPacket
 
 log = logging.getLogger("fleet.ingest")
@@ -121,6 +121,7 @@ def ingest_frame(conn_id: int, device_id: int, imei: str, frame: bytes) -> Inges
         )
         new = dup = 0
         newest_ts = device.last_record_ts
+        fixes = []  # new valid positions, for the geofence check after commit
         for idx, rec in enumerate(pkt.records):
             fp = rec.fingerprint(imei)
             if AVLRecord.objects.filter(device=device, fingerprint=fp).exists():
@@ -148,6 +149,8 @@ def ingest_frame(conn_id: int, device_id: int, imei: str, frame: bytes) -> Inges
                 ))
             IOValue.objects.bulk_create(io_rows)
             new += 1
+            if valid:
+                fixes.append((ts, rec.latitude, rec.longitude, rec.speed))
 
             # status only moves forward in time; a delayed record never overwrites a newer state
             if newest_ts is None or ts >= newest_ts:
@@ -180,6 +183,9 @@ def ingest_frame(conn_id: int, device_id: int, imei: str, frame: bytes) -> Inges
         if imei in fault:
             # Test hook (FLEET_FAULT_INJECT_IMEIS): simulate a DB failure after writes -> rollback, no ACK.
             raise RuntimeError(f"fault injection: simulated database failure for {imei}")
+
+    # enter / leave checks for geofences (separate transaction; never raises, alerts go out in the background)
+    geofence.process_fixes(device.pk, fixes)
 
     summary = (f"Codec {pkt.codec_name} · {len(pkt.records)} record(s), {new} new, {dup} duplicate · "
                f"CRC {pkt.crc & 0xFFFF:04X} OK")

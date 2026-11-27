@@ -1,0 +1,40 @@
+{% extends "tracking/base.html" %}
+{% block title %}Geofences · {{ FLEET.SITE_NAME }}{% endblock %}
+{% block mainclass %}content-flush{% endblock %}
+{% block head %}{% load static %}<link rel="stylesheet" href="{% static 'tracking/places.css' %}?v={{ ASSET_V }}">
+<link rel="stylesheet" href="{% static 'tracking/geofences.css' %}?v={{ ASSET_V }}">{% endblock %}
+{% block content %}
+<div class="places-wrap">
+  <section class="places-side">
+    <div class="p-2 border-bottom d-flex flex-wrap gap-2 align-items-center">
+      <h1 class="h6 m-0 me-auto"><i class="bi bi-bounding-box-circles"></i> Geofences <span class="badge text-bg-secondary" id="gfCount">0</span></h1>
+      {% if can_edit %}<button class="btn btn-success btn-sm" id="gfNew" type="button"><i class="bi bi-plus-lg"></i> New zone</button>{% endif %}
+    </div>
+    <div class="px-2 py-1 border-bottom small d-flex align-items-center gap-2">
+      <i class="bi bi-whatsapp {% if wa.ready %}text-success{% else %}text-body-secondary{% endif %}"></i>
+      {% if wa.ready %}<span>WhatsApp alerts on · {{ wa.label }} · {{ wa.recipients }} number{{ wa.recipients|pluralize }}</span>
+      {% elif wa.provider %}<span class="text-warning-emphasis">WhatsApp not ready: missing {{ wa.missing|join:", " }}.</span>
+      {% else %}<span class="text-body-secondary">WhatsApp alerts are off. Crossings are still logged.</span>{% endif %}
+      {% if can_edit %}<a class="ms-auto" href="{% url 'settings' %}#whatsapp">Set up</a>{% endif %}
+    </div>
+    <ul class="nav nav-tabs nav-fill small px-2 pt-2" role="tablist">
+      <li class="nav-item"><button class="nav-link active py-1" data-bs-toggle="tab" data-bs-target="#tabZones" type="button">Zones</button></li>
+      <li class="nav-item"><button class="nav-link py-1" data-bs-toggle="tab" data-bs-target="#tabEvents" type="button">Crossings <span class="badge text-bg-primary" id="gfNewEv" hidden></span></button></li>
+    </ul>
+    <div class="tab-content places-list">
+      <div class="tab-pane show active" id="tabZones"><div id="gfList"></div></div>
+      <div class="tab-pane" id="tabEvents"><div id="gfEvents"></div></div>
+    </div>
+  </section>
+  <div class="position-relative flex-grow-1 d-flex">
+    <div id="map"></div>
+    <div class="gf-hint shadow-sm" id="gfHint" hidden></div>
+    <aside class="place-card shadow" id="gfCard" hidden></aside>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+{{ page_data|json_script:"gf-data" }}
+<script>window.GF_URLS = {api: "{% url 'api_geofences' %}", events: "{% url 'api_geofence_events' %}", csrf: "{{ csrf_token }}"};</script>
+<script src="{% static 'tracking/geofences.js' %}?v={{ ASSET_V }}"></script>
+{% endblock %}

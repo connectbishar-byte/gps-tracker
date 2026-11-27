@@ -16,7 +16,8 @@ from __future__ import annotations
 from django.db import router, transaction
 from django.db.models import Q
 
-from .models import AVLRecord, Connection, Device, IOValue, PortEvent, RawPacket, SavedPlace, TestRun
+from .models import (AVLRecord, Connection, Device, GeofenceEvent, GeofenceState, IOValue, PortEvent, RawPacket,
+                     SavedPlace, TestRun)
 
 UNKNOWN_SELFTEST_IMEI = "000000000000001"  # the "must be rejected" IMEI used by run_connectivity_suite
 
@@ -35,6 +36,8 @@ def _plan(doomed_devices, doomed_connections, doomed_packets, doomed_events, doo
         ("raw packets", doomed_packets),
         ("connections", doomed_connections),
         ("saved places", doomed_places),
+        ("geofence crossings", GeofenceEvent.objects.filter(device__in=doomed_devices)),
+        ("geofence states", GeofenceState.objects.filter(device__in=doomed_devices)),
         ("vehicles / devices", doomed_devices),
     ]
 

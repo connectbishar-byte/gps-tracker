@@ -1,0 +1,14 @@
+/* Geofences page (/geofences/) - layout comes from places.css */
+.gf-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.gf-tag { display: inline-block; margin-right: 6px; }
+.gf-tag.in { color: #16a34a; } .gf-tag.out { color: #dc2626; }
+.gf-vehicles { max-height: 120px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; }
+.gf-handle { background: #fff; border: 2px solid #2563eb; border-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
+.gf-handle.center { border-radius: 50%; background: #2563eb; border-color: #fff; }
+.gf-handle.first { background: #16a34a; border-color: #fff; border-radius: 50%; width: 16px !important; height: 16px !important; }
+.gf-hint { position: absolute; z-index: 850; bottom: 28px; left: 50%; transform: translateX(-50%); background: var(--card); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px; font-size: 13px; max-width: calc(100% - 120px); }
+.gf-drawing .leaflet-container, #map.gf-drawing { cursor: crosshair; }
+#tabEvents .pitem { cursor: pointer; }
+#tabEvents .pitem .nm { white-space: normal; }
+#map .leaflet-interactive:focus { outline: none; }
