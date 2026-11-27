@@ -1,0 +1,145 @@
+{% extends "tracking/base.html" %}
+{% block title %}Saved places · {{ FLEET.SITE_NAME }}{% endblock %}
+{% block mainclass %}content-flush{% endblock %}
+{% block head %}{% load static %}<link rel="stylesheet" href="{% static 'tracking/places.css' %}?v={{ ASSET_V }}">{% endblock %}
+{% block content %}
+<div class="places-wrap">
+  <section class="places-side">
+    <div class="p-2 border-bottom d-flex flex-wrap gap-2 align-items-center">
+      <h1 class="h6 m-0 me-auto"><i class="bi bi-pin-map"></i> Saved places <span class="badge text-bg-secondary">{{ places|length }}</span></h1>
+      <a class="btn btn-success btn-sm" href="{% url 'drive' %}"><i class="bi bi-car-front"></i> Car view</a>
+    </div>
+    <form class="p-2 border-bottom d-flex gap-2" method="get">
+      <select name="kind" class="form-select form-select-sm" style="max-width: 9rem" onchange="this.form.submit()">
+        <option value="">All kinds</option>
+        {% for k, label in kinds %}<option value="{{ k }}" {% if kind == k %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <input name="q" value="{{ q }}" class="form-control form-control-sm" placeholder="Search name, address, notes…">
+    </form>
+    <div class="p-2 border-bottom d-flex flex-wrap gap-2 align-items-center small">
+      <span class="text-body-secondary">Export{% if kind or q %} (all){% endif %}:</span>
+      <a class="btn btn-outline-primary btn-sm" href="{% url 'places_export' 'kml' %}" title="Google My Maps, Google Earth"><i class="bi bi-download"></i> KML</a>
+      <a class="btn btn-outline-primary btn-sm" href="{% url 'places_export' 'csv' %}" title="Google My Maps, Excel"><i class="bi bi-download"></i> CSV</a>
+      <a class="btn btn-outline-primary btn-sm" href="{% url 'places_export' 'geojson' %}" title="GIS tools"><i class="bi bi-download"></i> GeoJSON</a>
+      <button class="btn btn-outline-secondary btn-sm ms-auto" type="button" data-bs-toggle="collapse" data-bs-target="#importBox"><i class="bi bi-upload"></i> Import</button>
+    </div>
+    <div class="collapse border-bottom" id="importBox">
+      <form class="p-2 small" method="post" action="{% url 'places_import' %}" enctype="multipart/form-data">{% csrf_token %}
+        <div class="mb-1">Load places from a <b>KML</b> (Google My Maps → ⋮ → Export to KML/KMZ, tick “Export to .KML”), <b>CSV</b> with latitude / longitude columns, or <b>GeoJSON</b> file.</div>
+        <div class="d-flex gap-2"><input type="file" name="file" accept=".kml,.csv,.geojson,.json" class="form-control form-control-sm" required>
+          <button class="btn btn-primary btn-sm">Import</button></div>
+      </form>
+    </div>
+    <div class="places-list" id="plist">
+      {% for p in places %}
+      <div class="pitem" data-id="{{ p.id }}">
+        <div class="d-flex justify-content-between gap-2">
+          <span class="nm"><i class="bi {% if p.kind == 'pin' %}bi-pin-angle-fill text-info{% elif p.kind == 'import' %}bi-upload text-secondary{% else %}bi-flag-fill text-danger{% endif %}"></i> {{ p.name }}</span>
+          <span class="small text-body-secondary text-nowrap">{{ p.created_utc|date:"d M H:i" }}</span>
+        </div>
+        {% if p.address %}<div class="meta">{{ p.address }}</div>{% endif %}
+        {% if p.kind == 'trip' and p.distance_km is not None %}
+        <div class="meta">{{ p.distance_km|floatformat:1 }} km · max {{ p.max_speed_kmh|floatformat:0 }} · avg {{ p.avg_speed_kmh|floatformat:0 }} km/h
+          {% if p.driver_rating %}· <span class="rating-{{ p.driver_rating }}">{{ p.driver_rating|capfirst }} {{ p.driver_score }}</span>{% endif %}</div>
+        {% endif %}
+        {% if user.is_staff and p.owner %}<div class="meta">by {{ p.owner.username }}{% if p.device %} · {{ p.device.name }}{% endif %}</div>{% endif %}
+      </div>
+      {% empty %}
+      <div class="p-3 text-body-secondary small">No saved places yet. Open <a href="{% url 'drive' %}">Car view</a> on your phone, press Start, and Stop at your destination: the place is saved here.</div>
+      {% endfor %}
+    </div>
+  </section>
+  <div class="position-relative flex-grow-1 d-flex">
+    <div id="map"></div>
+    <aside class="place-card shadow" id="pcard" hidden></aside>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+{{ places_data|json_script:"places-data" }}
+<script>
+(function () {
+  const places = JSON.parse(document.getElementById("places-data").textContent);
+  const byId = Object.fromEntries(places.map(p => [p.id, p]));
+  const csrf = "{{ csrf_token }}";
+  const api = "{% url 'place-list' %}";
+  const delUrl = id => "{% url 'place_delete' 0 %}".replace("/0/", `/${id}/`);
+  const exportUrl = (fmt, id) => "{% url 'places_export' 'FMT' %}".replace("FMT", fmt) + "?ids=" + id;
+  const map = L.map("map").setView([24.45, 54.6], 10);
+  Fleet.baseLayers(map);
+  const markers = {};
+  let routeLine = null, startDot = null, sel = null;
+  const color = {trip: "#dc2626", pin: "#0ea5e9", import: "#64748b"};
+  for (const p of places) {
+    markers[p.id] = L.circleMarker([p.latitude, p.longitude], {radius: 8, color: "#fff", weight: 2, fillColor: color[p.kind] || "#64748b", fillOpacity: 1})
+      .addTo(map).bindTooltip(p.name).on("click", () => select(p.id));
+  }
+  if (places.length) map.fitBounds(L.latLngBounds(places.map(p => [p.latitude, p.longitude])), {padding: [40, 40], maxZoom: 15});
+
+  const esc = Fleet.esc;
+  const dur = s => { if (s == null) return "—"; const h = Math.floor(s / 3600), m = Math.round(s % 3600 / 60); return h ? `${h} h ${m} min` : `${m} min`; };
+  function select(id) {
+    const p = byId[id]; if (!p) return;
+    sel = id;
+    document.querySelectorAll(".pitem").forEach(e => e.classList.toggle("sel", +e.dataset.id === id));
+    if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
+    if (startDot) { map.removeLayer(startDot); startDot = null; }
+    if (p.track && p.track.length > 1) {
+      routeLine = L.polyline(p.track, {color: "#0ea5e9", weight: 5, opacity: .85}).addTo(map);
+      startDot = L.circleMarker(p.track[0], {radius: 7, color: "#fff", weight: 2, fillColor: "#16a34a", fillOpacity: 1}).addTo(map).bindTooltip("Start");
+      map.fitBounds(routeLine.getBounds(), {padding: [40, 40], maxZoom: 16});
+    } else map.setView([p.latitude, p.longitude], Math.max(map.getZoom(), 16));
+    const trip = p.kind === "trip" && p.distance_km != null;
+    const card = document.getElementById("pcard");
+    card.innerHTML = `
+      <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+        <input class="form-control form-control-sm fw-semibold" id="pname" value="${esc(p.name)}" maxlength="120" aria-label="Name">
+        <button class="btn-close" id="pclose" aria-label="Close"></button></div>
+      <div class="small text-body-secondary mb-2">${esc(p.address || "")}<br>${p.latitude.toFixed(6)}, ${p.longitude.toFixed(6)} · ${Fleet.fmt(p.created_utc).slice(0, 16)}</div>
+      ${trip ? `<div class="ptrip mb-2">
+        <div><b>${p.distance_km.toFixed(1)}</b> km</div><div><b>${dur(p.duration_s)}</b> total</div>
+        <div><b>${Math.round(p.max_speed_kmh || 0)}</b> max km/h</div><div><b>${Math.round(p.avg_speed_kmh || 0)}</b> avg km/h</div>
+        <div class="rating-${p.driver_rating}"><b>${esc((p.driver_rating || "—").replace(/^./, c => c.toUpperCase()))}</b> ${p.driver_score ?? ""}</div>
+        <div><b>${p.harsh_accel}/${p.harsh_brake}/${p.harsh_turn}</b> harsh acc/brk/turn</div></div>
+        ${p.start_address ? `<div class="small mb-2">From <b>${esc(p.start_address)}</b></div>` : ""}` : ""}
+      <textarea class="form-control form-control-sm mb-2" id="pnotes" rows="2" placeholder="Notes" maxlength="2000">${esc(p.notes || "")}</textarea>
+      <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-primary btn-sm" href="${p.directions_url}" target="_blank" rel="noopener"><i class="bi bi-sign-turn-right"></i> Navigate</a>
+        <a class="btn btn-outline-primary btn-sm" href="${p.google_maps_url}" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i> Google Maps</a>
+        <a class="btn btn-outline-secondary btn-sm" href="${exportUrl("kml", p.id)}"><i class="bi bi-download"></i> KML</a>
+        <button class="btn btn-outline-secondary btn-sm" id="pcopy"><i class="bi bi-clipboard"></i> Copy</button>
+      </div>
+      <div class="d-flex gap-2 mt-2">
+        <button class="btn btn-success btn-sm" id="psave"><i class="bi bi-check2"></i> Save changes</button>
+        <form method="post" action="${delUrl(p.id)}" class="ms-auto" onsubmit="return confirm('Delete this place?')"><input type="hidden" name="csrfmiddlewaretoken" value="${csrf}"><button class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i> Delete</button></form>
+      </div>
+      <div class="small mt-1" id="pmsg"></div>`;
+    card.hidden = false;
+    document.getElementById("pclose").onclick = () => { card.hidden = true; sel = null; document.querySelectorAll(".pitem.sel").forEach(e => e.classList.remove("sel")); };
+    document.getElementById("pcopy").onclick = async () => {
+      const t = `${p.name}\n${p.address || ""}\n${p.google_maps_url}`;
+      try { await navigator.clipboard.writeText(t); document.getElementById("pmsg").textContent = "Copied the Google Maps link."; }
+      catch (e) { document.getElementById("pmsg").textContent = p.google_maps_url; }
+    };
+    document.getElementById("psave").onclick = async () => {
+      const body = {name: document.getElementById("pname").value.trim() || p.name, notes: document.getElementById("pnotes").value};
+      const r = await fetch(`${api}${p.id}/`, {method: "PATCH", credentials: "same-origin",
+        headers: {"Content-Type": "application/json", "X-CSRFToken": csrf}, body: JSON.stringify(body)});
+      const msg = document.getElementById("pmsg");
+      if (r.ok) {
+        Object.assign(p, await r.json());
+        msg.className = "small mt-1 text-success"; msg.textContent = "Saved.";
+        const row = document.querySelector(`.pitem[data-id="${p.id}"] .nm`);
+        if (row) row.lastChild.textContent = " " + p.name;
+        markers[p.id].setTooltipContent(p.name);
+      } else { msg.className = "small mt-1 text-danger"; msg.textContent = "Not saved (" + r.status + ")."; }
+    };
+    const qs = new URLSearchParams(location.search); qs.set("place", id);
+    history.replaceState(null, "", `${location.pathname}?${qs}`);
+  }
+  document.getElementById("plist").addEventListener("click", e => { const it = e.target.closest(".pitem"); if (it) select(+it.dataset.id); });
+  const want = +new URLSearchParams(location.search).get("place");
+  if (want && byId[want]) select(want);
+})();
+</script>
+{% endblock %}

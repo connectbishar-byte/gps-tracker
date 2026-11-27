@@ -199,6 +199,33 @@ sudo -u fleet bash -c 'set -a; . /etc/meltice-gps-tracker/fleet.env; cd /srv/mel
 the receiver, power the device and watch the terminal; it is registered automatically as
 "Auto-registered 1234". Switch the setting back off afterwards.
 
+## Car view and saved places — the phone in the car
+
+**Car view** (`/drive/`, also in the left menu) is a full-screen page for a phone mounted in the car.
+
+* **Start / Stop** records a drive from the phone's own GPS (allow location when the browser asks), or pick a
+  tracked vehicle in the top menu to follow its tracker instead.
+* The bottom panel shows speed (turns red over the limit), the current place name, and tiles you choose with
+  the **sliders** button: distance, drive time, moving time, average speed (moving and including stops), max
+  speed, driver rating, harsh accelerations / brakes / turns, time over the limit, heading, altitude, GPS
+  accuracy, start place, clock, coordinates. The choice, speed limit, harsh-driving sensitivity and beep are
+  saved on the phone.
+* **Driver rating**: starts at 100 and drops for harsh acceleration (> 3.0 m/s²), harsh braking (> 3.5 m/s²),
+  harsh turns (sideways > 4.0 m/s²) and time over the speed limit, scaled by distance. 80+ is *Good*, 60–79
+  *Fair*, below 60 *Aggressive*. Thresholds move with the sensitivity setting.
+* **Full screen** button (Android / desktop). On iPhone: Share → *Add to Home Screen*, then open Car view from
+  the home screen. The screen is kept on while driving where the browser allows it.
+* **Stop** saves the place where you stopped, with the drive's summary and route, into the new `SavedPlace`
+  table. The **pin** button saves the current spot at any time. With no mobile data the save waits on the
+  phone and uploads by itself later. A drive survives a page reload.
+* Place names come from OpenStreetMap Nominatim through the server (`/places/geocode/`, cached, max 1 request
+  per second as Nominatim asks). The server needs outbound HTTPS to `nominatim.openstreetmap.org`.
+
+**Saved places** (`/places/`) lists them on a map: rename, add notes, delete, show the route, **Navigate**
+(Google Maps directions) or open in Google Maps. **Export** as KML (Google My Maps → *Import*, or Google Earth),
+CSV (My Maps or Excel) or GeoJSON; **Import** a KML / CSV / GeoJSON file back in. Users see their own places,
+staff see everyone's. REST API: `/api/v1/places/`.
+
 ## REST API
 
 Interactive docs: **`/api/docs/`** (Swagger, sign in first) and `/api/redoc/`. Full guide: `docs/API.md`.
