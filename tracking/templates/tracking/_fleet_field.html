@@ -1,0 +1,2 @@
+<div class="{{ cls|default:'col-sm-6' }}">{% if f.field.widget.input_type == 'checkbox' %}<div class="form-check form-switch mt-4">{{ f }}<label class="form-check-label small" for="{{ f.id_for_label }}">{{ f.label }}</label></div>{% else %}<label class="form-label small mb-1" for="{{ f.id_for_label }}">{{ f.label }}</label>{{ f }}{% endif %}
+{% if f.help_text %}<div class="form-text small">{{ f.help_text }}</div>{% endif %}{% for e in f.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>

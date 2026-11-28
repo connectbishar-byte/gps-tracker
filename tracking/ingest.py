@@ -16,7 +16,7 @@ from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
 
-from . import codec, geofence, io_dictionary as iod, rules
+from . import codec, fleet, geofence, io_dictionary as iod, rules
 from .models import AVLRecord, Connection, Device, IOValue, PortEvent, RawPacket
 
 log = logging.getLogger("fleet.ingest")
@@ -190,6 +190,7 @@ def ingest_frame(conn_id: int, device_id: int, imei: str, frame: bytes) -> Inges
     # enter / leave checks for geofences (separate transaction; never raises, alerts go out in the background)
     geofence.process_fixes(device.pk, fixes)
     rules.process(device.pk, rule_recs)
+    fleet.identify_from_records(device.pk, rule_recs)
 
     summary = (f"Codec {pkt.codec_name} · {len(pkt.records)} record(s), {new} new, {dup} duplicate · "
                f"CRC {pkt.crc & 0xFFFF:04X} OK")

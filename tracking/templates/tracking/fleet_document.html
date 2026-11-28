@@ -1,0 +1,17 @@
+{% extends "tracking/base.html" %}
+{% block title %}{% if doc %}{{ doc }}{% else %}New document{% endif %} · Fleet · {{ FLEET.SITE_NAME }}{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center gap-2 mb-3">
+  <a href="{% url 'fleet' %}?tab=documents" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i></a>
+  <h5 class="m-0">{% if doc %}Edit document{% else %}New document{% endif %}</h5>
+</div>
+<form method="post" class="card" style="max-width: 900px">{% csrf_token %}
+  <div class="card-body">
+    {% if form.non_field_errors %}<div class="alert alert-danger py-2">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+    <div class="row g-2">{% for f in form %}{% include "tracking/_fleet_field.html" with f=f cls="col-sm-6 col-lg-4" %}{% endfor %}</div>
+    <div class="form-text small mt-2">Pick a vehicle <b>or</b> a driver. A WhatsApp reminder goes to the default numbers when the expiry is within the reminder window.</div>
+  </div>
+  {% if can_edit %}<div class="card-footer d-flex gap-2"><button class="btn btn-primary btn-sm"><i class="bi bi-check2"></i> Save</button>
+    {% if doc %}<button class="btn btn-outline-danger btn-sm ms-auto" name="delete" value="1" formnovalidate onclick="return confirm('Delete this document?')"><i class="bi bi-trash"></i> Delete</button>{% endif %}</div>{% endif %}
+</form>
+{% endblock %}

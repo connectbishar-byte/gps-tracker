@@ -285,6 +285,23 @@ POST /api/v1/whatsapp/send-media/     {"to_number": "...", "customer_name": "Ali
 `https://<site>/whatsapp/webhook/` with the verify token above, field **messages**. The log under the WhatsApp card
 shows every send (payload, Meta's answer, request id, URL and masked token) and every raw webhook event.
 
+## Fleet registry — vehicles, drivers, assignments, documents
+
+**Fleet** (`/fleet/`) is the registry from the FleetConnect 360 scope (FLT-01, FLT-05, IVM-02):
+
+* **Vehicles**: type, registration, make / model, year, VIN, capacity, fuel, odometer, SIM number / ICCID and
+  availability (available, in use, in maintenance, out of service). The odometer is the tracker's total odometer
+  (AVL 16) when it sends one, otherwise the reading you enter plus the GPS distance driven since that date.
+* **Drivers**: employee ID, phone, licence, iButton / driver card ID and an optional login.
+* **Assignments**: pick a driver next to a vehicle. A driver drives one vehicle at a time, so the previous
+  assignments close automatically. When a tracker reports an iButton ID (AVL 78) that matches a driver, the vehicle
+  is assigned to them from that record. A vehicle that moves with nobody assigned shows **Driving, no driver**, and
+  journeys nobody covers are marked **Unassigned** on the vehicle page.
+* **Documents**: registration, insurance, licence, permit, inspection, contract. Each has an expiry and a reminder
+  window (default 30 days). The receiver sends one WhatsApp message to the default numbers, hourly between 08:00 and
+  20:00, listing documents that are expired or due, repeating each document at most once a week. `python manage.py
+  fleet_reminders --dry-run` shows the message. **Export CSV** on the Documents tab downloads the list.
+
 ## Driver score sheet
 
 **Driver score** (`/drivers/`) rates how each vehicle and each Car view driver drove over a date range, from 0 to 100,

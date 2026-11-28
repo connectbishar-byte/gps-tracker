@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import (AlertEvent, AlertRule, AVLRecord, Connection, Device, Geofence, GeofenceEvent, IOValue, PortEvent, RawPacket,
+from .models import (AlertEvent, Driver, DriverAssignment, FleetDocument, AlertRule, AVLRecord, Connection, Device, Geofence, GeofenceEvent, IOValue, PortEvent, RawPacket,
                      ReceiverHeartbeat, TestRun, WhatsAppMessage)
 
 
@@ -80,3 +80,21 @@ class WhatsAppMessageAdmin(admin.ModelAdmin):
     list_display = ("created_utc", "direction", "source", "number", "kind", "status", "detail")
     list_filter = ("direction", "status", "source")
     readonly_fields = [f.name for f in WhatsAppMessage._meta.fields]
+
+
+@admin.register(Driver)
+class DriverAdmin(admin.ModelAdmin):
+    list_display = ("name", "employee_id", "phone", "licence_number", "ibutton_id", "active")
+    search_fields = ("name", "employee_id", "phone", "ibutton_id")
+
+
+@admin.register(DriverAssignment)
+class DriverAssignmentAdmin(admin.ModelAdmin):
+    list_display = ("device", "driver", "start_utc", "end_utc", "source")
+    list_filter = ("source",)
+
+
+@admin.register(FleetDocument)
+class FleetDocumentAdmin(admin.ModelAdmin):
+    list_display = ("kind", "number", "device", "driver", "expiry", "last_reminder_on")
+    list_filter = ("kind",)

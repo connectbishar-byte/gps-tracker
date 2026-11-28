@@ -34,6 +34,7 @@
     <a href="{% url 'places' %}" class="{% if nav == 'places' %}active{% endif %}"><i class="bi bi-pin-map"></i><span>Saved places</span></a>
     <a href="{% url 'geofences' %}" class="{% if nav == 'geofences' %}active{% endif %}"><i class="bi bi-bounding-box-circles"></i><span>Geofences</span></a>
     <a href="{% url 'alerts' %}" class="{% if nav == 'alerts' %}active{% endif %}"><i class="bi bi-bell"></i><span>Alerts</span></a>
+    <a href="{% url 'fleet' %}" class="{% if nav == 'fleet' %}active{% endif %}"><i class="bi bi-truck"></i><span>Fleet</span></a>
     <a href="{% url 'drivers' %}" class="{% if nav == 'drivers' %}active{% endif %}"><i class="bi bi-speedometer2"></i><span>Driver score</span></a>
     <a href="{% url 'records' %}" class="{% if nav == 'records' %}active{% endif %}"><i class="bi bi-table"></i><span>Records</span></a>
     {% if can_view_raw %}<a href="{% url 'raw' %}" class="{% if nav == 'raw' %}active{% endif %}"><i class="bi bi-file-binary"></i><span>Raw data</span></a>{% endif %}

@@ -19,7 +19,7 @@ from django.conf import settings
 from django.db import close_old_connections
 from django.utils import timezone
 
-from . import codec, ingest
+from . import codec, ingest, periodic
 
 log = logging.getLogger("fleet.receiver")
 
@@ -122,6 +122,7 @@ class Receiver:
                     n = await self.run_db(ingest.prune_events, self.event_retention_hours)
                     if n:
                         log.info("pruned %d port events older than %d h", n, self.event_retention_hours)
+                    await self.run_db(periodic.run)
             except Exception:
                 log.exception("heartbeat failed")
             loops += 1
