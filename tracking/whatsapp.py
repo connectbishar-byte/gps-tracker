@@ -304,7 +304,7 @@ def send_template_text(to_number, subject: str = "", customer_name: str = "", te
         "name": cfg["meta_template"], "language": {"code": cfg["meta_lang"] or "en_US"},
         "components": [
             {"type": "header", "parameters": [{"type": "text", "parameter_name": "head_name",
-                                               "text": _param(subject, "Meltice GPS Tracker")[:60]}]},
+                                               "text": _param(subject, "Meltice FleetConnect 360")[:60]}]},
             {"type": "body", "parameters": [
                 {"type": "text", "parameter_name": "custname", "text": _param(customer_name, cfg["meta_alert_name"])},
                 {"type": "text", "parameter_name": "textname", "text": _param(text_name)}]},

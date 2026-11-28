@@ -1,4 +1,6 @@
-# Meltice GPS Tracker
+# Meltice FleetConnect 360
+
+_Formerly Meltice GPS Tracker. GPS tracking, fleet management and IVMS for Teltonika FMC130 trackers._
 
 Receives Teltonika **FMC130** telemetry over cellular TCP (Codec 8 / Codec 8 Extended), shows **every byte that
 arrives on the tracker port in a live terminal**, keeps every raw packet, decodes GPS and I/O values into
