@@ -1,4 +1,4 @@
-/* Shared helpers for the Meltice GPS Tracker UI */
+/* Shared helpers for the Meltice FleetConnect 360 UI */
 (function () {
   const cfg = window.FLEET_CFG || {tz: "Asia/Dubai", poll: 5};
   const dtf = new Intl.DateTimeFormat("en-GB", {timeZone: cfg.tz, year: "numeric", month: "2-digit", day: "2-digit",

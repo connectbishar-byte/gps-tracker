@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Meltice GPS Tracker - native install on a Hostinger VPS (Ubuntu 22.04/24.04).
+# Meltice FleetConnect 360 - native install on a Hostinger VPS (Ubuntu 22.04/24.04).
 # Run from the unpacked project folder:   sudo bash deploy/hostinger/install.sh
 #
 # Database (DB_MODE):

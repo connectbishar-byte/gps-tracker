@@ -1,5 +1,5 @@
 """
-Meltice GPS Tracker prototype settings. Everything deployment-specific comes from environment
+Meltice FleetConnect 360 prototype settings. Everything deployment-specific comes from environment
 variables (see .env.example). The production database is Microsoft SQL Server
 (FLEET_DB_ENGINE=mssql, the default); set FLEET_DB_ENGINE=sqlite for a quick single-file trial.
 """
@@ -179,7 +179,7 @@ REST_FRAMEWORK = {
     "DATETIME_FORMAT": "iso-8601",
 }
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Meltice GPS Tracker API",
+    "TITLE": "Meltice FleetConnect 360 API",
     "DESCRIPTION": "Devices, decoded AVL records, raw Teltonika packets, the live port event stream and "
                    "connectivity tests. Authenticate with POST /api/v1/auth/token/ then send "
                    "`Authorization: Token <key>`.",
@@ -194,7 +194,7 @@ SPECTACULAR_SETTINGS = {
 # Fleet / receiver
 # ---------------------------------------------------------------------------
 FLEET = {
-    "SITE_NAME": env("FLEET_SITE_NAME", "Meltice GPS Tracker"),
+    "SITE_NAME": env("FLEET_SITE_NAME", "Meltice FleetConnect 360"),
     "ENVIRONMENT": env("FLEET_ENVIRONMENT_LABEL", "Local"),
     "RECEIVER_BIND_HOST": env("FLEET_RECEIVER_HOST", "0.0.0.0"),
     "RECEIVER_PORT": int(env("FLEET_RECEIVER_PORT", "5027")),
