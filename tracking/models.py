@@ -385,7 +385,10 @@ class AlertRule(models.Model):
         ("geofence_enter", "Enters a geofence"), ("geofence_exit", "Leaves a geofence"),
         ("overspeed", "Over speed"), ("idle", "Idling too long"), ("crash", "Crash detected"),
         ("harsh", "Harsh driving"), ("ignition_on", "Ignition on"), ("ignition_off", "Ignition off"),
+        ("sos", "SOS / panic button"), ("power_loss", "Power cut / tracker unplugged"),
+        ("towing", "Towing / moved with ignition off"), ("offline", "No data (offline)"),
     ]
+    INCIDENT_KINDS = {"crash", "sos", "power_loss", "towing", "offline"}
     CHANNELS = [("whatsapp", "WhatsApp"), ("sms", "SMS (coming later)")]
 
     name = models.CharField(max_length=100)
@@ -402,6 +405,14 @@ class AlertRule(models.Model):
                                                         "WhatsApp numbers on Settings).")
     message = models.TextField(blank=True, help_text="Message text; blank = a standard text for this kind.")
     cooldown_min = models.PositiveIntegerField(default=10, help_text="At most one alert per vehicle in this many minutes.")
+    threshold = models.FloatField(null=True, blank=True, help_text="Power cut: alert below this many volts (default 6 V).")
+    io_id = models.PositiveIntegerField("Input (AVL ID)", null=True, blank=True,
+                                        help_text="SOS: the tracker input wired to the button (default 2 = DIN2).")
+    create_incident = models.BooleanField("Open an incident", default=False,
+                                          help_text="Log it on the Incidents page to acknowledge, escalate and close.")
+    escalate_after_min = models.PositiveIntegerField("Escalate after (minutes)", default=0,
+                                                     help_text="Not acknowledged in this long → tell the escalation numbers. 0 = never.")
+    escalation_recipients = models.TextField(blank=True, help_text="WhatsApp numbers for escalation, one per line.")
     created_by = models.CharField(max_length=150, blank=True)
     created_utc = models.DateTimeField(default=timezone.now)
     updated_utc = models.DateTimeField(auto_now=True)
@@ -532,3 +543,62 @@ class FleetDocument(models.Model):
         if d < 0:
             return "expired"
         return "due" if d <= self.remind_days else "ok"
+
+
+class Incident(models.Model):
+    """
+    A critical event to be handled by a person (FleetConnect 360 GPS-05 / IVM-05): crash, SOS, power cut, towing,
+    vehicle offline. Opened by an alert rule with "Open an incident" ticked; repeats of the same kind on the same
+    vehicle while it is still open are counted on it instead of opening another. Every step is kept in IncidentNote.
+    """
+    STATUSES = [("open", "Open"), ("acknowledged", "Acknowledged"), ("escalated", "Escalated"), ("closed", "Closed")]
+    SEVERITIES = [("critical", "Critical"), ("high", "High"), ("medium", "Medium")]
+    RESOLUTIONS = [("genuine", "Genuine — handled"), ("false_alarm", "False alarm"), ("test", "Test"), ("other", "Other")]
+
+    device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name="incidents")
+    driver = models.ForeignKey("Driver", null=True, blank=True, on_delete=models.SET_NULL, related_name="incidents")
+    rule = models.ForeignKey(AlertRule, null=True, blank=True, on_delete=models.SET_NULL, related_name="incidents")
+    alert = models.ForeignKey(AlertEvent, null=True, blank=True, on_delete=models.SET_NULL, related_name="incidents")
+    kind = models.CharField(max_length=20)
+    title = models.CharField(max_length=200)
+    severity = models.CharField(max_length=8, choices=SEVERITIES, default="high")
+    status = models.CharField(max_length=12, choices=STATUSES, default="open", db_index=True)
+    timestamp_utc = models.DateTimeField(db_index=True, help_text="When it happened (tracker time)")
+    opened_utc = models.DateTimeField(default=timezone.now)
+    last_seen_utc = models.DateTimeField(null=True, blank=True)
+    occurrences = models.PositiveIntegerField(default=1)
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+    speed = models.IntegerField(default=0)
+    acknowledged_by = models.CharField(max_length=150, blank=True)
+    acknowledged_utc = models.DateTimeField(null=True, blank=True)
+    escalated_utc = models.DateTimeField(null=True, blank=True)
+    closed_by = models.CharField(max_length=150, blank=True)
+    closed_utc = models.DateTimeField(null=True, blank=True)
+    resolution = models.CharField(max_length=12, choices=RESOLUTIONS, blank=True)
+
+    class Meta:
+        ordering = ["-opened_utc", "-id"]
+        indexes = [models.Index(fields=["device", "kind", "status"], name="incident_dev_kind_status")]
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def is_open(self):
+        return self.status != "closed"
+
+
+class IncidentNote(models.Model):
+    """Audit trail of an incident: opened, repeated, acknowledged, escalated, comments, closed, reopened."""
+    ACTIONS = [("opened", "Opened"), ("repeat", "Happened again"), ("ack", "Acknowledged"), ("escalate", "Escalated"),
+               ("auto_escalate", "Escalated automatically"), ("comment", "Comment"), ("close", "Closed"),
+               ("reopen", "Reopened"), ("notify", "Notification")]
+    incident = models.ForeignKey(Incident, on_delete=models.CASCADE, related_name="notes")
+    created_utc = models.DateTimeField(default=timezone.now)
+    user = models.CharField(max_length=150, blank=True)
+    action = models.CharField(max_length=14, choices=ACTIONS)
+    text = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["created_utc", "id"]

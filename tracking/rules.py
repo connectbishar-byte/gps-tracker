@@ -34,6 +34,11 @@ from .models import AlertEvent, AlertRule, AlertRuleState, Device
 log = logging.getLogger("fleet.rules")
 
 CRASH, GREEN_DRIVING, IGNITION = 247, 253, 239
+EXT_VOLTAGE, UNPLUG, TOWING = 66, 252, 246
+DEFAULT_SOS_INPUT = 2  # DIN2
+DEFAULT_POWER_V = 6.0
+TOWING_KMH = 10
+DEFAULT_OFFLINE_S = 3600
 HARSH_TYPES = {1: "harsh acceleration", 2: "harsh braking", 3: "harsh cornering"}
 OVERSPEED_RESET_KMH = 3
 STILL_KMH = 3
@@ -47,6 +52,10 @@ DEFAULT_TEXT = {
     "harsh": "⚠️ {vehicle}: {what} at {time}, {speed} km/h. {map}",
     "ignition_on": "🔑 {vehicle} ignition ON at {time}. {map}",
     "ignition_off": "🅿️ {vehicle} ignition OFF at {time}. {map}",
+    "sos": "🆘 SOS button pressed on {vehicle} at {time}. {map}",
+    "power_loss": "🔌 Power cut on {vehicle} at {time}: {what}. {map}",
+    "towing": "🚛 {vehicle} is moving with the ignition off ({what}) at {time}, {speed} km/h. {map}",
+    "offline": "📵 {vehicle} has sent no data for {duration} (last at {since}). {map}",
 }
 PLACEHOLDERS = ["vehicle", "rule", "zone", "speed", "limit", "time", "since", "duration", "what", "map", "lat", "lon"]
 
@@ -106,6 +115,9 @@ def _raise(rule, device, st, ts, lat, lon, speed, pending: list, **extra) -> Ale
                                    text=render(rule, device.name, ts, lat, lon, speed, **extra))
     if status == "pending":
         pending.append(ev.pk)
+    if rule.create_incident:
+        from . import incidents
+        incidents.open_from_alert(rule, device, ev)
     return ev
 
 
@@ -175,7 +187,8 @@ def on_geofence(ev, pending: list) -> None:
         st.save()
 
 
-RECORD_KINDS = ["overspeed", "idle", "crash", "harsh", "ignition_on", "ignition_off"]
+RECORD_KINDS = ["overspeed", "idle", "crash", "harsh", "ignition_on", "ignition_off", "sos", "power_loss", "towing",
+                "offline"]
 
 
 def process(device_id: int, recs: list[dict]) -> list[int]:
@@ -252,6 +265,54 @@ def _check(rule, device, st, r, pending):
         if t in HARSH_TYPES:
             return _raise(rule, device, st, ts, lat, lon, speed, pending, what=HARSH_TYPES[int(t)])
         return None
+    if k == "offline":
+        # fresh data ends the offline episode; the alert itself is raised by check_offline()
+        if st.fired:
+            from . import incidents
+            incidents.note_back_online(device, ts)
+        st.active, st.fired = False, False
+        return None
+    if k == "sos":
+        v = io.get(rule.io_id or DEFAULT_SOS_INPUT)
+        if v is None:
+            return None
+        pressed = bool(v)
+        was = st.active
+        st.active = pressed
+        if pressed and not was:
+            return _raise(rule, device, st, ts, lat, lon, speed, pending)
+        return None
+    if k == "power_loss":
+        limit = rule.threshold if rule.threshold is not None else DEFAULT_POWER_V
+        volts, unplug = io.get(EXT_VOLTAGE), io.get(UNPLUG)
+        if volts is None and unplug is None:
+            return None
+        cut = bool(unplug) or (volts is not None and volts < limit)
+        if cut and not st.active:
+            st.active, st.since_utc = True, ts
+            what = "tracker unplugged" if unplug else f"external voltage {volts:.1f} V (below {limit:g} V)"
+            return _raise(rule, device, st, ts, lat, lon, speed, pending, what=what)
+        if not cut and (volts is None or volts >= limit + 1):
+            st.active = False
+        return None
+    if k == "towing":
+        if io.get(TOWING):
+            if not st.fired:
+                st.active, st.fired, st.since_utc = True, True, ts
+                return _raise(rule, device, st, ts, lat, lon, speed, pending, what="tracker towing detection")
+            return None
+        ign = io.get(IGNITION)
+        if ign is None:
+            ign = 1 if device.last_ignition else 0
+        if not ign and r["valid"] and speed >= TOWING_KMH:
+            if not st.active:
+                st.active, st.since_utc, st.fired = True, ts, False
+            if not st.fired and (ts - st.since_utc).total_seconds() >= rule.duration_s:
+                st.fired = True
+                return _raise(rule, device, st, ts, lat, lon, speed, pending, what="GPS speed with ignition off")
+        elif ign or speed < STILL_KMH:
+            st.active, st.fired = False, False
+        return None
     if k in ("ignition_on", "ignition_off"):
         ign = io.get(IGNITION)
         if ign is None:
@@ -265,3 +326,36 @@ def _check(rule, device, st, r, pending):
         if changed and on == (k == "ignition_on"):
             return _raise(rule, device, st, ts, lat, lon, speed, pending)
     return None
+
+
+def check_offline(now=None) -> list[int]:
+    """Raise "offline" alerts for vehicles that sent nothing for the rule's duration. Run by tracking/periodic.py.
+    A vehicle that never sent anything is not reported. Fresh data resets the episode (see _check)."""
+    now = now or timezone.now()
+    created, pending = [], []
+    rules_ = list(AlertRule.objects.filter(active=True, kind="offline").prefetch_related("devices"))
+    if not rules_:
+        return []
+    devices = list(Device.objects.filter(enabled=True, last_record_ts__isnull=False).exclude(model="SIMULATOR")
+                   .exclude(imei=settings.FLEET.get("SELFTEST_IMEI") or "-"))
+    with transaction.atomic():
+        for rule in rules_:
+            limit = rule.duration_s or DEFAULT_OFFLINE_S
+            watched = {d.pk for d in rule.devices.all()}
+            for dev in devices:
+                if watched and dev.pk not in watched:
+                    continue
+                last = max(t for t in (dev.last_record_ts, dev.last_packet_utc) if t)
+                if (now - last).total_seconds() < limit:
+                    continue
+                st, _ = AlertRuleState.objects.select_for_update().get_or_create(rule=rule, device=dev)
+                if st.fired:
+                    continue
+                st.active, st.fired, st.since_utc = True, True, last
+                ev = _raise(rule, dev, st, now, dev.last_fix_lat, dev.last_fix_lon, 0, pending, since=last,
+                            duration=_fmt_duration((now - last).total_seconds()))
+                st.save()
+                created.append(ev.pk)
+        if pending:
+            transaction.on_commit(lambda: dispatch(pending))
+    return created

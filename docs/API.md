@@ -60,6 +60,8 @@ A user has one token until it is revoked. Signing out of the web UI does not rev
 | `GET /assignments/` | driver-to-vehicle assignments, newest first, paginated | `device`, `driver`, `current=1` |
 | `POST /assignments/` | make a driver current on a vehicle (staff): `{"driver": 3, "device": 1, "start_utc": "optional ISO time"}` | |
 | `GET/POST /documents/` · `GET/PUT/PATCH/DELETE /documents/{id}/` | vehicle or driver documents with `state` (`ok`/`due`/`expired`/`none`) and `days_left`; set exactly one of `device` or `driver` | `due=1` |
+| `GET /incidents/` · `GET /incidents/{id}/` | incidents with their audit trail (`notes`), newest first, paginated | `status`, `open=1`, `device` |
+| `POST /incidents/{id}/action/` | `{"action": "ack" \| "escalate" \| "comment" \| "close" \| "reopen", "text": "...", "resolution": "genuine" \| "false_alarm" \| "test" \| "other"}` | |
 | `GET /tests/` | connectivity self-test results | |
 | `POST /tests/run/` | run the 13-step protocol self-test (staff): `{"host": "127.0.0.1", "port": 5027, "mode": "full"}` | |
 

@@ -48,8 +48,10 @@ class RuleForm(forms.ModelForm):
     class Meta:
         model = AlertRule
         fields = ["name", "kind", "active", "devices", "geofence", "speed_limit", "channels", "recipients",
-                  "message", "cooldown_min"]
+                  "message", "cooldown_min", "threshold", "io_id", "create_incident", "escalate_after_min",
+                  "escalation_recipients"]
         widgets = {"devices": forms.CheckboxSelectMultiple, "recipients": forms.Textarea(attrs={"rows": 2}),
+                   "escalation_recipients": forms.Textarea(attrs={"rows": 2}),
                    "message": forms.Textarea(attrs={"rows": 3})}
 
     def __init__(self, *a, **kw):
@@ -62,6 +64,7 @@ class RuleForm(forms.ModelForm):
         else:
             self.initial.setdefault("channels", ["whatsapp"])
         self.fields["name"].required = False
+        self.fields["escalate_after_min"].required = False
         for name, f in self.fields.items():
             if isinstance(f.widget, (forms.CheckboxSelectMultiple, forms.CheckboxInput)):
                 f.widget.attrs["class"] = "form-check-input"
@@ -75,11 +78,19 @@ class RuleForm(forms.ModelForm):
             c["name"] = dict(AlertRule.KINDS).get(kind, kind)
         if kind == "overspeed" and not c.get("speed_limit"):
             self.add_error("speed_limit", "Enter the speed limit in km/h.")
+        c["escalate_after_min"] = c.get("escalate_after_min") or 0
+        if kind == "offline" and not c.get("duration_min"):
+            c["duration_min"] = 60
         if kind == "idle" and not c.get("duration_min"):
             self.add_error("duration_min", "Enter how many minutes of idling should raise the alert.")
         _, errors = whatsapp.parse_recipients(c.get("recipients") or "")
         for e in errors:
             self.add_error("recipients", e)
+        _, errors = whatsapp.parse_recipients(c.get("escalation_recipients") or "")
+        for e in errors:
+            self.add_error("escalation_recipients", e)
+        if c.get("escalate_after_min") and not c.get("create_incident"):
+            self.add_error("escalate_after_min", "Escalation needs “Open an incident” ticked.")
         return c
 
     def save(self, commit=True):
@@ -129,6 +140,7 @@ def rule_edit(request, pk=None):
         initial = {}
         if request.GET.get("kind") in dict(AlertRule.KINDS):
             initial["kind"] = request.GET["kind"]
+            initial["create_incident"] = initial["kind"] in AlertRule.INCIDENT_KINDS
         form = RuleForm(instance=rule, initial=initial)
     return render(request, "tracking/alert_rule.html", {
         "nav": "alerts", "form": form, "rule": rule, "defaults": rules.DEFAULT_TEXT,

@@ -1,7 +1,7 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from . import alerts_views, api, driverscore, fleet, places, vehicledash
+from . import alerts_views, api, driverscore, fleet, incidents, places, vehicledash
 
 router = DefaultRouter()
 router.register("devices", api.DeviceViewSet, basename="device")
@@ -12,6 +12,7 @@ router.register("tests", api.TestRunViewSet, basename="testrun")
 router.register("drivers", fleet.DriverViewSet, basename="driver")
 router.register("assignments", fleet.AssignmentViewSet, basename="assignment")
 router.register("documents", fleet.DocumentViewSet, basename="document")
+router.register("incidents", incidents.IncidentViewSet, basename="incident")
 router.register("places", places.SavedPlaceViewSet, basename="place")
 
 urlpatterns = [

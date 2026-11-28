@@ -1,0 +1,41 @@
+{% extends "tracking/base.html" %}
+{% block title %}Incidents · {{ FLEET.SITE_NAME }}{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+  <h5 class="m-0 me-auto"><i class="bi bi-exclamation-octagon"></i> Incidents {% if open_count %}<span class="badge text-bg-danger">{{ open_count }} open</span>{% endif %}</h5>
+  <div class="btn-group btn-group-sm">
+    <a class="btn btn-outline-secondary {% if show == 'open' %}active{% endif %}" href="?show=open">Open</a>
+    <a class="btn btn-outline-secondary {% if show == 'escalated' %}active{% endif %}" href="?show=escalated">Escalated</a>
+    <a class="btn btn-outline-secondary {% if show == 'closed' %}active{% endif %}" href="?show=closed">Closed</a>
+    <a class="btn btn-outline-secondary {% if show == 'all' %}active{% endif %}" href="?show=all">All</a>
+  </div>
+</div>
+<div class="row g-2 mb-3 small">
+  <div class="col-6 col-md-3"><div class="card card-body py-2"><div class="text-body-secondary">Last 30 days</div><b class="fs-5">{{ stats.total }}</b></div></div>
+  <div class="col-6 col-md-3"><div class="card card-body py-2"><div class="text-body-secondary">Closed</div><b class="fs-5">{{ stats.closed }}</b></div></div>
+  <div class="col-6 col-md-3"><div class="card card-body py-2"><div class="text-body-secondary">False alarms</div><b class="fs-5">{{ stats.false_alarm }}</b></div></div>
+  <div class="col-6 col-md-3"><div class="card card-body py-2"><div class="text-body-secondary">Median time to acknowledge</div><b class="fs-5">{% if stats.median_ack_min is not None %}{{ stats.median_ack_min }} min{% else %}—{% endif %}</b></div></div>
+</div>
+<div class="card">
+  {% if incidents %}
+  <div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">
+    <thead><tr><th>Opened</th><th>Incident</th><th>Driver</th><th>Severity</th><th>Status</th><th>Times</th></tr></thead><tbody>
+    {% for i in incidents %}<tr onclick="location.href='{% url 'incident' i.pk %}'" style="cursor:pointer">
+      <td class="text-nowrap">{{ i.opened_utc|date:"d M H:i" }}</td>
+      <td><a href="{% url 'incident' i.pk %}"><b>{{ i.title }}</b></a></td>
+      <td class="small">{{ i.driver.name|default:"—" }}</td>
+      <td><span class="badge text-bg-{% if i.severity == 'critical' %}danger{% elif i.severity == 'high' %}warning{% else %}secondary{% endif %}">{{ i.get_severity_display }}</span></td>
+      <td><span class="badge text-bg-{% if i.status == 'open' %}danger{% elif i.status == 'escalated' %}warning{% elif i.status == 'acknowledged' %}primary{% else %}success{% endif %}">{{ i.get_status_display }}</span>
+        {% if i.status == 'closed' %}<span class="small text-body-secondary">{{ i.get_resolution_display }}</span>{% elif i.acknowledged_by %}<span class="small text-body-secondary">by {{ i.acknowledged_by }}</span>{% endif %}</td>
+      <td>{{ i.occurrences }}</td>
+    </tr>{% endfor %}
+  </tbody></table></div>
+  {% else %}
+  <div class="p-4 text-body-secondary">{% if show == 'open' %}No open incidents.{% else %}Nothing here.{% endif %}
+    {% if not has_rules %}<div class="mt-2">Incidents are opened by alert rules with <b>Open an incident</b> ticked.{% if can_edit %} Start with
+      <a href="{% url 'alert_rule_new' %}?kind=sos">SOS</a>, <a href="{% url 'alert_rule_new' %}?kind=crash">Crash</a>,
+      <a href="{% url 'alert_rule_new' %}?kind=power_loss">Power cut</a>, <a href="{% url 'alert_rule_new' %}?kind=towing">Towing</a> or
+      <a href="{% url 'alert_rule_new' %}?kind=offline">Offline</a>.{% endif %}</div>{% endif %}</div>
+  {% endif %}
+</div>
+{% endblock %}

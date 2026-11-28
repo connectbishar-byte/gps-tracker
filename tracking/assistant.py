@@ -192,6 +192,16 @@ PAGES = {
                  "Crash and harsh driving need those features enabled on the tracker in the Teltonika Configurator."],
         "ask": ["How do I get an alert when the Jeep goes over 120?", "Why didn't my alert arrive?"],
     },
+    "incidents": {
+        "title": "Incidents",
+        "about": "Critical events that a person must handle: crash, SOS button, power cut, towing and vehicles gone "
+                 "offline. Each one is acknowledged, escalated if needed, and closed with a resolution; every step is logged.",
+        "tips": ["An incident is opened by an alert rule with “Open an incident” ticked (Alerts → New rule → SOS, Power cut, Towing, Offline, Crash).",
+                 "Acknowledge as soon as someone is on it; a rule can escalate to other numbers if nobody does.",
+                 "Repeats on the same vehicle are counted on the open incident instead of opening new ones.",
+                 "Close with a resolution (genuine, false alarm, test) so the false alarm rate is tracked."],
+        "ask": ["Which incidents are still open?", "How do I get an SOS alert?"],
+    },
     "fleet": {
         "title": "Fleet registry",
         "about": "Vehicle details (type, registration, odometer, capacity, SIM, availability), drivers, who is driving "

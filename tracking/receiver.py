@@ -118,11 +118,11 @@ class Receiver:
         while True:
             try:
                 await self.run_db(beat)
+                await self.run_db(periodic.run)
                 if loops % 120 == 0:  # every ~10 minutes
                     n = await self.run_db(ingest.prune_events, self.event_retention_hours)
                     if n:
                         log.info("pruned %d port events older than %d h", n, self.event_retention_hours)
-                    await self.run_db(periodic.run)
             except Exception:
                 log.exception("heartbeat failed")
             loops += 1
