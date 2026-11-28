@@ -1,0 +1,26 @@
+{% extends "tracking/base.html" %}
+{% block title %}Reports · {{ FLEET.SITE_NAME }}{% endblock %}
+{% load static %}
+{% block head %}<link rel="stylesheet" href="{% static 'tracking/drivers.css' %}?v={{ ASSET_V }}">{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3 no-print">
+  <h5 class="m-0 me-auto"><i class="bi bi-file-earmark-bar-graph"></i> Reports</h5>
+</div>
+<form class="d-flex flex-wrap gap-2 align-items-end mb-3 no-print" method="get">
+  <div><label class="form-label small mb-0" for="rKind">Report</label>
+    <select class="form-select form-select-sm" id="rKind" name="report">{% for k, l in reports %}<option value="{{ k }}" {% if k == kind %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+  <div><label class="form-label small mb-0" for="rFrom">From</label><input type="date" class="form-control form-control-sm" id="rFrom" name="from" value="{{ d_from|date:'Y-m-d' }}"></div>
+  <div><label class="form-label small mb-0" for="rTo">To</label><input type="date" class="form-control form-control-sm" id="rTo" name="to" value="{{ d_to|date:'Y-m-d' }}"></div>
+  <button class="btn btn-primary btn-sm"><i class="bi bi-arrow-repeat"></i> Show</button>
+  <div class="btn-group btn-group-sm">{% for label, a, b in presets %}<a class="btn btn-outline-secondary" href="?report={{ kind }}&from={{ a|date:'Y-m-d' }}&to={{ b|date:'Y-m-d' }}">{{ label }}</a>{% endfor %}</div>
+  <a class="btn btn-outline-success btn-sm ms-auto" href="?report={{ kind }}&{{ qs }}&format=csv"><i class="bi bi-filetype-csv"></i> CSV</a>
+  <button type="button" class="btn btn-outline-secondary btn-sm" onclick="window.print()"><i class="bi bi-printer"></i> Print / PDF</button>
+</form>
+<div class="card">
+  <div class="card-header"><b>{{ kind_label }}</b> · {{ d_from|date:"d M Y" }} – {{ d_to|date:"d M Y" }}</div>
+  <div class="table-responsive"><table class="table table-sm table-hover small mb-0">
+    <thead><tr>{% for h in head %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for r in rows %}<tr>{% for c in r %}<td>{{ c }}</td>{% endfor %}</tr>{% empty %}<tr><td colspan="{{ head|length }}" class="text-body-secondary p-3">Nothing in this range.</td></tr>{% endfor %}</tbody>
+  </table></div>
+</div>
+{% endblock %}

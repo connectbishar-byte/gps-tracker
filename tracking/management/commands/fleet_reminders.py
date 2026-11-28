@@ -18,5 +18,8 @@ class Command(BaseCommand):
         parser.add_argument("--dry-run", action="store_true")
 
     def handle(self, *args, **opts):
+        from tracking import maintenance
         res = fleet.send_reminders(dry_run=opts["dry_run"])
         self.stdout.write(f"{res['count']} document(s). {res['detail']}")
+        res = maintenance.send_reminders(dry_run=opts["dry_run"])
+        self.stdout.write(f"{res['count']} service plan(s). {res['detail']}")

@@ -1,0 +1,61 @@
+{% extends "tracking/base.html" %}
+{% block title %}Maintenance · {{ FLEET.SITE_NAME }}{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+  <h5 class="m-0 me-auto"><i class="bi bi-wrench-adjustable"></i> Maintenance and costs</h5>
+  {% if can_edit %}<a class="btn btn-outline-primary btn-sm" href="{% url 'plan_new' %}"><i class="bi bi-calendar-plus"></i> Service plan</a>
+  <a class="btn btn-outline-primary btn-sm" href="{% url 'order_new' %}"><i class="bi bi-clipboard-plus"></i> Work order</a>
+  <a class="btn btn-primary btn-sm" href="{% url 'expense_new' %}"><i class="bi bi-receipt"></i> Expense</a>{% endif %}
+</div>
+<div class="row g-2 mb-3 small">
+  <div class="col-6 col-md-3"><div class="card card-body py-2"><div class="text-body-secondary">Service due / overdue</div><b class="fs-5 {% if due %}text-danger{% endif %}">{{ due|length }}</b></div></div>
+  <div class="col-6 col-md-3"><div class="card card-body py-2"><div class="text-body-secondary">Open work orders</div><b class="fs-5">{{ open_orders }}</b></div></div>
+  <div class="col-12 col-md-6"><div class="card card-body py-2"><div class="text-body-secondary">Spent this month (AED)</div><b class="fs-5">{{ month_total|floatformat:"2g" }}</b>
+    <div class="text-body-secondary">{% for c in month_costs %}{{ c.label }} {{ c.total|floatformat:"0g" }}{% if not forloop.last %} · {% endif %}{% empty %}No expenses yet.{% endfor %}</div></div></div>
+</div>
+<ul class="nav nav-tabs" role="tablist">
+  <li class="nav-item"><button class="nav-link {% if tab == 'due' %}active{% endif %}" data-bs-toggle="tab" data-bs-target="#tDue" type="button">Due <span class="badge text-bg-{% if due %}danger{% else %}secondary{% endif %}">{{ due|length }}</span></button></li>
+  <li class="nav-item"><button class="nav-link {% if tab == 'plans' %}active{% endif %}" data-bs-toggle="tab" data-bs-target="#tPlans" type="button">Service plans</button></li>
+  <li class="nav-item"><button class="nav-link {% if tab == 'orders' %}active{% endif %}" data-bs-toggle="tab" data-bs-target="#tOrders" type="button">Work orders</button></li>
+  <li class="nav-item"><button class="nav-link {% if tab == 'expenses' %}active{% endif %}" data-bs-toggle="tab" data-bs-target="#tExp" type="button">Expenses</button></li>
+  <li class="nav-item"><button class="nav-link {% if tab == 'fuel' %}active{% endif %}" data-bs-toggle="tab" data-bs-target="#tFuel" type="button">Fuel</button></li>
+</ul>
+<div class="tab-content card border-top-0 rounded-top-0">
+  <div class="tab-pane {% if tab == 'due' %}show active{% endif %}" id="tDue">{% include "tracking/_plans_table.html" with rows=due empty="Nothing is due. Service plans turn Due inside their reminder window." %}</div>
+  <div class="tab-pane {% if tab == 'plans' %}show active{% endif %}" id="tPlans">{% include "tracking/_plans_table.html" with rows=plans empty="No service plans yet." %}</div>
+  <div class="tab-pane {% if tab == 'orders' %}show active{% endif %}" id="tOrders">
+    <div class="table-responsive" style="max-height:70vh"><table class="table table-sm table-hover align-middle mb-0">
+      <thead class="sticky-top"><tr><th>Vehicle</th><th>Work order</th><th>Status</th><th>Scheduled</th><th>Completed</th><th>Vendor</th><th class="text-end">Cost</th><th class="text-end">Downtime h</th></tr></thead><tbody>
+      {% for w in orders %}<tr>
+        <td>{{ w.device.name }}</td><td>{% if can_edit %}<a href="{% url 'order_edit' w.pk %}">{{ w.title }}</a>{% else %}{{ w.title }}{% endif %}{% if w.plan %}<div class="small text-body-secondary">{{ w.plan.name }}</div>{% endif %}</td>
+        <td><span class="badge text-bg-{% if w.status == 'done' %}success{% elif w.status == 'in_progress' %}primary{% elif w.status == 'planned' %}info{% else %}secondary{% endif %}">{{ w.get_status_display }}</span></td>
+        <td class="small">{{ w.scheduled|date:"d M Y"|default:"—" }}</td><td class="small">{{ w.completed|date:"d M Y"|default:"—" }}</td>
+        <td class="small">{{ w.vendor|default:"—" }}</td><td class="text-end">{{ w.cost|floatformat:"2g"|default:"—" }}</td><td class="text-end">{{ w.downtime_hours|default:"—" }}</td>
+      </tr>{% empty %}<tr><td colspan="8" class="text-body-secondary p-3">No work orders yet.</td></tr>{% endfor %}
+    </tbody></table></div>
+  </div>
+  <div class="tab-pane {% if tab == 'expenses' %}show active{% endif %}" id="tExp">
+    <div class="table-responsive" style="max-height:70vh"><table class="table table-sm table-hover align-middle mb-0">
+      <thead class="sticky-top"><tr><th>Date</th><th>Vehicle</th><th>Category</th><th class="text-end">AED</th><th class="text-end">Litres</th><th class="text-end">Odometer</th><th>Driver</th><th>Vendor / ref.</th></tr></thead><tbody>
+      {% for e in expenses %}<tr>
+        <td class="text-nowrap">{% if can_edit %}<a href="{% url 'expense_edit' e.pk %}">{{ e.date|date:"d M Y" }}</a>{% else %}{{ e.date|date:"d M Y" }}{% endif %}</td>
+        <td>{{ e.device.name }}</td><td>{{ e.get_category_display }}</td><td class="text-end">{{ e.amount|floatformat:"2g" }}</td>
+        <td class="text-end">{{ e.litres|default:"" }}</td><td class="text-end">{{ e.odometer_km|floatformat:"0g"|default:"" }}</td>
+        <td class="small">{{ e.driver.name|default:"" }}</td><td class="small">{{ e.vendor }}{% if e.reference %} · {{ e.reference }}{% endif %}</td>
+      </tr>{% empty %}<tr><td colspan="8" class="text-body-secondary p-3">No expenses yet.</td></tr>{% endfor %}
+    </tbody></table></div>
+  </div>
+  <div class="tab-pane {% if tab == 'fuel' %}show active{% endif %}" id="tFuel">
+    <div class="table-responsive" style="max-height:70vh"><table class="table table-sm align-middle mb-0">
+      <thead class="sticky-top"><tr><th>Date</th><th>Vehicle</th><th class="text-end">Litres</th><th>Full</th><th class="text-end">Odometer</th><th class="text-end">km since full</th><th class="text-end">L/100 km</th><th></th></tr></thead><tbody>
+      {% for r in fuel %}<tr>
+        <td class="text-nowrap">{{ r.e.date|date:"d M Y" }}</td><td>{{ r.e.device.name }}</td><td class="text-end">{{ r.e.litres|default:"—" }}</td>
+        <td>{% if r.e.full_tank %}<i class="bi bi-check2"></i>{% endif %}</td><td class="text-end">{{ r.e.odometer_km|floatformat:"0g"|default:"—" }}</td>
+        <td class="text-end">{{ r.km|default:"" }}</td><td class="text-end">{{ r.l100|default:"" }}</td>
+        <td>{% if r.flag %}<span class="badge text-bg-warning" title="More than 30% above this vehicle's median of {{ r.median }} L/100 km. Worth checking: a leak, a wrong odometer entry, idling, or fuel misuse.">Check</span>{% endif %}</td>
+      </tr>{% empty %}<tr><td colspan="8" class="text-body-secondary p-3">No fuel entries yet. Add an expense with category Fuel, litres and the odometer.</td></tr>{% endfor %}
+    </tbody></table></div>
+    <div class="p-2 border-top small text-body-secondary">L/100 km is measured between full-tank fills with odometer readings. “Check” is a suspected anomaly, not a confirmed theft.</div>
+  </div>
+</div>
+{% endblock %}

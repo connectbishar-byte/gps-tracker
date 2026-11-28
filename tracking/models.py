@@ -602,3 +602,74 @@ class IncidentNote(models.Model):
 
     class Meta:
         ordering = ["created_utc", "id"]
+
+
+class MaintenancePlan(models.Model):
+    """A recurring service for a vehicle (FleetConnect 360 FLT-03): every N km and/or every N days."""
+    device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name="maintenance_plans")
+    name = models.CharField(max_length=100, help_text="e.g. Oil and filter, Tyre rotation, Annual inspection")
+    every_km = models.PositiveIntegerField("Every (km)", null=True, blank=True)
+    every_days = models.PositiveIntegerField("Every (days)", null=True, blank=True)
+    last_done_date = models.DateField(null=True, blank=True)
+    last_done_km = models.FloatField("Last done at (km)", null=True, blank=True)
+    remind_km = models.PositiveIntegerField("Remind (km before)", default=500)
+    remind_days = models.PositiveIntegerField("Remind (days before)", default=14)
+    active = models.BooleanField(default=True)
+    notes = models.TextField(blank=True)
+    last_reminder_on = models.DateField(null=True, blank=True)
+    created_utc = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["device__name", "name"]
+
+    def __str__(self):
+        return f"{self.name} · {self.device.name}"
+
+
+class WorkOrder(models.Model):
+    """A maintenance or repair job on a vehicle, with its cost and downtime (FLT-03)."""
+    STATUSES = [("planned", "Planned"), ("in_progress", "In progress"), ("done", "Done"), ("cancelled", "Cancelled")]
+    device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name="work_orders")
+    plan = models.ForeignKey(MaintenancePlan, null=True, blank=True, on_delete=models.SET_NULL, related_name="work_orders")
+    title = models.CharField(max_length=150)
+    status = models.CharField(max_length=12, choices=STATUSES, default="planned", db_index=True)
+    scheduled = models.DateField(null=True, blank=True)
+    started = models.DateField(null=True, blank=True)
+    completed = models.DateField(null=True, blank=True)
+    odometer_km = models.FloatField("Odometer (km)", null=True, blank=True)
+    vendor = models.CharField("Workshop / vendor", max_length=100, blank=True)
+    cost = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    downtime_hours = models.FloatField(null=True, blank=True)
+    reference = models.CharField("Invoice / ref.", max_length=60, blank=True)
+    notes = models.TextField(blank=True)
+    created_by = models.CharField(max_length=150, blank=True)
+    created_utc = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-created_utc", "-id"]
+
+    def __str__(self):
+        return self.title
+
+
+class Expense(models.Model):
+    """A vehicle cost: fuel (with litres for consumption), tolls, fines, tyres... (FLT-04)."""
+    CATEGORIES = [("fuel", "Fuel"), ("toll", "Toll (Salik / Darb)"), ("parking", "Parking"), ("fine", "Fine"),
+                  ("tyres", "Tyres"), ("repair", "Repair / parts"), ("wash", "Wash"), ("insurance", "Insurance"),
+                  ("registration", "Registration"), ("other", "Other")]
+    device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name="expenses")
+    driver = models.ForeignKey("Driver", null=True, blank=True, on_delete=models.SET_NULL, related_name="expenses")
+    date = models.DateField(default=timezone.localdate, db_index=True)
+    category = models.CharField(max_length=14, choices=CATEGORIES, default="fuel")
+    amount = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
+    litres = models.FloatField(null=True, blank=True, validators=[MinValueValidator(0)], help_text="Fuel only")
+    full_tank = models.BooleanField(default=True, help_text="Fuel only: filled to full (used for consumption)")
+    odometer_km = models.FloatField("Odometer (km)", null=True, blank=True)
+    vendor = models.CharField(max_length=100, blank=True)
+    reference = models.CharField("Receipt / ref.", max_length=60, blank=True)
+    notes = models.CharField(max_length=300, blank=True)
+    created_by = models.CharField(max_length=150, blank=True)
+    created_utc = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-date", "-id"]

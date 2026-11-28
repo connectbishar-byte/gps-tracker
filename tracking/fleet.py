@@ -143,10 +143,10 @@ def driver_at(assignments: list[DriverAssignment], ts) -> Driver | None:
 # Odometer
 # ---------------------------------------------------------------------------
 def tracker_odometer_km(device) -> float | None:
-    """Total odometer from the tracker (AVL 16, metres) when it is configured to send it."""
+    """Total odometer from the tracker (AVL 16; the IO dictionary already scales it to km) when it sends one."""
     v = (IOValue.objects.filter(device=device, avl_id=TOTAL_ODOMETER, value__gt=0)
          .order_by("-timestamp_utc").values_list("value", flat=True).first())
-    return None if v is None else round(v / 1000.0, 1)
+    return None if v is None else round(v, 1)
 
 
 def gps_km_since(device, since) -> float:
@@ -360,7 +360,7 @@ def vehicle_page(request, pk):
         assigns = list(DriverAssignment.objects.filter(device=v, start_utc__lt=end)
                        .exclude(end_utc__lt=start).select_related("driver"))
         for tr in reversed(trips[-30:]):
-            drv = driver_at(assigns, tr.start) or (driver_for_ibutton(tr.driver_ids[0]) if tr.driver_ids else None)
+            drv = driver_at(assigns, tr.start) or (driver_for_ibutton(int(tr.driver_ids[0], 16)) if tr.driver_ids else None)
             journeys.append({"t": tr, "driver": drv, "km": round(tr.m.km, 1), "dur": ds._fmt_dur(tr.m.duration_s)})
     except Exception:
         log.exception("journeys for %s", v.pk)
