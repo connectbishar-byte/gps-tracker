@@ -56,6 +56,10 @@ A user has one token until it is revoked. Signing out of the web UI does not rev
 | `GET /receiver/` | receiver heartbeat: up, active connections, frames ok/bad, public endpoint | |
 | `GET /driver-scores/` | driver score for every vehicle and Car view driver, with the per-parameter breakdown | `from`, `to` (`YYYY-MM-DD`, local dates, inclusive; default last 7 days; max 92 days) |
 | `GET /driver-scores/vehicle/{id}/` · `GET /driver-scores/user/{id}/` | one score sheet with every trip | `from`, `to` |
+| `GET/POST /drivers/` · `GET/PUT/PATCH/DELETE /drivers/{id}/` | fleet registry drivers, with `current_vehicle` (writes: staff) | |
+| `GET /assignments/` | driver-to-vehicle assignments, newest first, paginated | `device`, `driver`, `current=1` |
+| `POST /assignments/` | make a driver current on a vehicle (staff): `{"driver": 3, "device": 1, "start_utc": "optional ISO time"}` | |
+| `GET/POST /documents/` · `GET/PUT/PATCH/DELETE /documents/{id}/` | vehicle or driver documents with `state` (`ok`/`due`/`expired`/`none`) and `days_left`; set exactly one of `device` or `driver` | `due=1` |
 | `GET /tests/` | connectivity self-test results | |
 | `POST /tests/run/` | run the 13-step protocol self-test (staff): `{"host": "127.0.0.1", "port": 5027, "mode": "full"}` | |
 

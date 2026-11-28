@@ -1,0 +1,65 @@
+{% extends "tracking/base.html" %}
+{% block title %}Fleet · {{ FLEET.SITE_NAME }}{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+  <h5 class="m-0 me-auto"><i class="bi bi-truck"></i> Fleet registry</h5>
+  {% if due_count %}<a class="badge text-bg-warning text-decoration-none" href="?tab=documents"><i class="bi bi-exclamation-triangle"></i> {{ due_count }} document{{ due_count|pluralize }} expired or due</a>{% endif %}
+  {% if can_edit %}<a class="btn btn-outline-primary btn-sm" href="{% url 'fleet_driver_new' %}"><i class="bi bi-person-plus"></i> Add driver</a>
+  <a class="btn btn-outline-primary btn-sm" href="{% url 'fleet_document_new' %}"><i class="bi bi-file-earmark-plus"></i> Add document</a>{% endif %}
+</div>
+<ul class="nav nav-tabs" role="tablist">
+  <li class="nav-item"><button class="nav-link {% if tab == 'vehicles' %}active{% endif %}" data-bs-toggle="tab" data-bs-target="#tVeh" type="button">Vehicles <span class="badge text-bg-secondary">{{ vehicles|length }}</span></button></li>
+  <li class="nav-item"><button class="nav-link {% if tab == 'drivers' %}active{% endif %}" data-bs-toggle="tab" data-bs-target="#tDrv" type="button">Drivers <span class="badge text-bg-secondary">{{ drivers|length }}</span></button></li>
+  <li class="nav-item"><button class="nav-link {% if tab == 'documents' %}active{% endif %}" data-bs-toggle="tab" data-bs-target="#tDoc" type="button">Documents <span class="badge text-bg-secondary">{{ documents|length }}</span></button></li>
+  <li class="nav-item"><button class="nav-link {% if tab == 'assignments' %}active{% endif %}" data-bs-toggle="tab" data-bs-target="#tAsg" type="button">Assignment log</button></li>
+</ul>
+<div class="tab-content card border-top-0 rounded-top-0">
+  <div class="tab-pane {% if tab == 'vehicles' %}show active{% endif %}" id="tVeh">
+    <div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">
+      <thead><tr><th>Vehicle</th><th>Type</th><th>Capacity</th><th>Availability</th><th>Driver</th><th>SIM</th><th></th></tr></thead><tbody>
+      {% for r in vehicles %}<tr>
+        <td><a href="{% url 'fleet_vehicle' r.v.pk %}"><b>{{ r.v.name }}</b></a>{% if r.v.plate %} <span class="badge text-bg-light border">{{ r.v.plate }}</span>{% endif %}
+          {% if r.docs == 'expired' %} <i class="bi bi-file-earmark-x text-danger" title="A document has expired"></i>{% elif r.docs == 'due' %} <i class="bi bi-file-earmark-break text-warning" title="A document expires soon"></i>{% endif %}
+          <div class="small text-body-secondary">{{ r.v.make_model|default:r.v.group }}{% if r.v.year %} · {{ r.v.year }}{% endif %}</div></td>
+        <td>{{ r.v.get_vehicle_type_display }}</td><td class="small">{{ r.v.capacity|default:"—" }}</td>
+        <td><span class="badge text-bg-{% if r.v.availability == 'available' %}success{% elif r.v.availability == 'in_use' %}primary{% elif r.v.availability == 'maintenance' %}warning{% else %}secondary{% endif %}">{{ r.v.get_availability_display }}</span></td>
+        <td>{% if r.a %}<a href="{% url 'fleet_driver' r.a.driver_id %}">{{ r.a.driver.name }}</a><div class="small text-body-secondary">since {{ r.a.start_utc|date:"d M H:i" }}{% if r.a.source == 'ibutton' %} · iButton{% endif %}</div>
+          {% elif r.unassigned_driving %}<span class="badge text-bg-danger"><i class="bi bi-person-exclamation"></i> Driving, no driver</span>{% else %}<span class="text-body-secondary small">Unassigned</span>{% endif %}</td>
+        <td class="small">{{ r.v.sim_number|default:"—" }}</td>
+        <td class="text-end text-nowrap">{% if can_edit %}<form method="post" action="{% url 'fleet_assign' %}" class="d-inline-flex gap-1">{% csrf_token %}
+            <input type="hidden" name="device" value="{{ r.v.pk }}"><input type="hidden" name="next" value="/fleet/">
+            <select name="driver" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()" aria-label="Assign driver">
+              <option value="">— no driver —</option>{% for d in all_drivers %}<option value="{{ d.pk }}" {% if r.a.driver_id == d.pk %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select></form>{% endif %}
+          <a class="btn btn-outline-secondary btn-sm" href="{% url 'vehicle_dashboard' r.v.pk %}" title="Vehicle dashboard"><i class="bi bi-bar-chart-line"></i></a></td>
+      </tr>{% empty %}<tr><td colspan="7" class="text-body-secondary p-3">No vehicles yet. Register a tracker on <a href="{% url 'devices' %}">Devices</a>.</td></tr>{% endfor %}
+    </tbody></table></div>
+  </div>
+  <div class="tab-pane {% if tab == 'drivers' %}show active{% endif %}" id="tDrv">
+    <div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">
+      <thead><tr><th>Driver</th><th>Employee ID</th><th>Phone</th><th>Licence</th><th>iButton</th><th>Vehicle now</th></tr></thead><tbody>
+      {% for r in drivers %}<tr class="{% if not r.d.active %}text-body-secondary{% endif %}">
+        <td><a href="{% url 'fleet_driver' r.d.pk %}"><b>{{ r.d.name }}</b></a>{% if not r.d.active %} <span class="badge text-bg-secondary">Inactive</span>{% endif %}
+          {% if r.docs == 'expired' %} <i class="bi bi-file-earmark-x text-danger" title="A document has expired"></i>{% elif r.docs == 'due' %} <i class="bi bi-file-earmark-break text-warning" title="A document expires soon"></i>{% endif %}</td>
+        <td class="small">{{ r.d.employee_id|default:"—" }}</td><td class="small">{{ r.d.phone|default:"—" }}</td>
+        <td class="small">{{ r.d.licence_number|default:"—" }}{% if r.d.licence_class %} · {{ r.d.licence_class }}{% endif %}</td>
+        <td class="small font-monospace">{{ r.d.ibutton_id|default:"—" }}</td>
+        <td>{% if r.a %}<a href="{% url 'fleet_vehicle' r.a.device_id %}">{{ r.a.device.name }}</a>{% else %}<span class="small text-body-secondary">—</span>{% endif %}</td>
+      </tr>{% empty %}<tr><td colspan="6" class="text-body-secondary p-3">No drivers yet.{% if can_edit %} <a href="{% url 'fleet_driver_new' %}">Add the first driver</a>.{% endif %}</td></tr>{% endfor %}
+    </tbody></table></div>
+  </div>
+  <div class="tab-pane {% if tab == 'documents' %}show active{% endif %}" id="tDoc">
+    {% include "tracking/_fleet_docs.html" with show_owner=1 %}
+    <div class="p-2 border-top small d-flex gap-3"><a href="{% url 'fleet_documents_csv' %}"><i class="bi bi-filetype-csv"></i> Export CSV</a>
+      <span class="text-body-secondary">Reminders go to the default WhatsApp numbers once a day (<code>manage.py fleet_reminders</code>), at most weekly per document.</span></div>
+  </div>
+  <div class="tab-pane {% if tab == 'assignments' %}show active{% endif %}" id="tAsg">
+    <div class="table-responsive" style="max-height:70vh"><table class="table table-sm small align-middle mb-0">
+      <thead class="sticky-top"><tr><th>Vehicle</th><th>Driver</th><th>From</th><th>To</th><th>How</th></tr></thead><tbody>
+      {% for a in assignments %}<tr><td>{{ a.device.name }}</td><td>{{ a.driver.name }}</td><td class="text-nowrap">{{ a.start_utc|date:"d M Y H:i" }}</td>
+        <td class="text-nowrap">{% if a.end_utc %}{{ a.end_utc|date:"d M Y H:i" }}{% else %}<span class="badge text-bg-success">current</span>{% endif %}</td>
+        <td>{{ a.get_source_display }}{% if a.created_by %} · {{ a.created_by }}{% endif %}{% if a.notes %} · {{ a.notes }}{% endif %}</td></tr>
+      {% empty %}<tr><td colspan="5" class="text-body-secondary p-3">No assignments yet. Pick a driver next to a vehicle, or give drivers an iButton ID.</td></tr>{% endfor %}
+    </tbody></table></div>
+  </div>
+</div>
+{% endblock %}

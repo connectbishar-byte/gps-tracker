@@ -192,6 +192,16 @@ PAGES = {
                  "Crash and harsh driving need those features enabled on the tracker in the Teltonika Configurator."],
         "ask": ["How do I get an alert when the Jeep goes over 120?", "Why didn't my alert arrive?"],
     },
+    "fleet": {
+        "title": "Fleet registry",
+        "about": "Vehicle details (type, registration, odometer, capacity, SIM, availability), drivers, who is driving "
+                 "which vehicle, and vehicle / driver documents with expiry reminders.",
+        "tips": ["Pick a driver next to a vehicle to assign them; the previous assignment is closed automatically.",
+                 "Give a driver their iButton / driver card ID and the vehicle is assigned when they touch the key.",
+                 "A red “Driving, no driver” badge means the vehicle is moving with nobody assigned.",
+                 "Documents tab: expired and due-soon documents are listed first; reminders go to the default WhatsApp numbers."],
+        "ask": ["Which documents expire this month?", "How do I assign a driver to a vehicle?"],
+    },
     "drivers": {
         "title": "Driver score",
         "about": "A score from 0 to 100 for each vehicle and Car view driver, from harsh acceleration, braking and "

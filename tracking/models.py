@@ -23,6 +23,24 @@ class Device(models.Model):
         help_text="Records, parameters, raw packets and connections older than this are deleted by the daily purge.")
     created_utc = models.DateTimeField(default=timezone.now)
 
+    # fleet registry (FleetConnect 360 FLT-01) - edited on the Fleet page
+    VEHICLE_TYPES = [("car", "Car"), ("pickup", "Pickup"), ("van", "Van"), ("bus", "Bus"), ("truck", "Truck"),
+                     ("trailer", "Trailer"), ("equipment", "Equipment"), ("motorbike", "Motorbike"), ("other", "Other")]
+    AVAILABILITY = [("available", "Available"), ("in_use", "In use"), ("maintenance", "In maintenance"),
+                    ("out_of_service", "Out of service")]
+    vehicle_type = models.CharField(max_length=12, choices=VEHICLE_TYPES, default="car")
+    make_model = models.CharField("Make / model", max_length=80, blank=True)
+    year = models.PositiveSmallIntegerField(null=True, blank=True, validators=[MinValueValidator(1950), MaxValueValidator(2100)])
+    vin = models.CharField("VIN / chassis", max_length=40, blank=True)
+    capacity = models.CharField(max_length=60, blank=True, help_text="e.g. 3 t, 14 seats, 2 pallets")
+    fuel_type = models.CharField(max_length=20, blank=True)
+    odometer_km = models.FloatField("Odometer (km)", null=True, blank=True, validators=[MinValueValidator(0)],
+                                    help_text="Reading on the date below; GPS distance since then is added to it.")
+    odometer_date = models.DateField(null=True, blank=True)
+    sim_number = models.CharField("SIM phone number", max_length=30, blank=True)
+    sim_iccid = models.CharField("SIM ICCID", max_length=30, blank=True)
+    availability = models.CharField(max_length=16, choices=AVAILABILITY, default="available")
+
     # denormalised status, maintained by the ingest pipeline
     last_connection_utc = models.DateTimeField(null=True, blank=True)
     last_packet_utc = models.DateTimeField(null=True, blank=True)
@@ -428,3 +446,89 @@ class AlertEvent(models.Model):
     class Meta:
         ordering = ["-timestamp_utc", "-id"]
         indexes = [models.Index(fields=["device", "timestamp_utc"], name="alert_device_ts")]
+
+
+class Driver(models.Model):
+    """A driver in the fleet registry (FleetConnect 360 FLT-01 / IVM-02)."""
+    name = models.CharField(max_length=100)
+    employee_id = models.CharField("Employee ID", max_length=40, blank=True)
+    phone = models.CharField(max_length=30, blank=True, help_text="International format, e.g. +971501234567")
+    email = models.EmailField(blank=True)
+    licence_number = models.CharField(max_length=40, blank=True)
+    licence_class = models.CharField(max_length=40, blank=True)
+    ibutton_id = models.CharField("iButton / driver card ID", max_length=40, blank=True,
+                                  help_text="As the tracker reports it (AVL 78), decimal or HEX. Touching the key "
+                                            "starts this driver's assignment to the vehicle automatically.")
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+                                related_name="driver_profile", help_text="Login used by this driver, if any.")
+    active = models.BooleanField(default=True)
+    notes = models.TextField(blank=True)
+    created_utc = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class DriverAssignment(models.Model):
+    """Who drove (or is assigned to) a vehicle from start_utc to end_utc (open = current)."""
+    SOURCES = [("manual", "Assigned on the Fleet page"), ("ibutton", "iButton / driver card"), ("api", "REST API")]
+    driver = models.ForeignKey(Driver, on_delete=models.CASCADE, related_name="assignments")
+    device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name="assignments")
+    start_utc = models.DateTimeField(default=timezone.now, db_index=True)
+    end_utc = models.DateTimeField(null=True, blank=True)
+    source = models.CharField(max_length=8, choices=SOURCES, default="manual")
+    created_by = models.CharField(max_length=150, blank=True)
+    notes = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ["-start_utc", "-id"]
+        indexes = [models.Index(fields=["device", "start_utc"], name="assign_device_ts")]
+
+    def __str__(self):
+        return f"{self.driver} → {self.device.name}"
+
+
+class FleetDocument(models.Model):
+    """Registration, insurance, licence, permit... for a vehicle or a driver, with an expiry reminder (FLT-05)."""
+    KINDS = [("registration", "Registration (Mulkiya)"), ("insurance", "Insurance"), ("licence", "Driving licence"),
+             ("permit", "Permit / pass"), ("inspection", "Inspection / test"), ("contract", "Contract / lease"),
+             ("other", "Other")]
+    kind = models.CharField(max_length=14, choices=KINDS, default="registration")
+    title = models.CharField(max_length=120, blank=True)
+    number = models.CharField("Document number", max_length=60, blank=True)
+    device = models.ForeignKey(Device, null=True, blank=True, on_delete=models.CASCADE, related_name="documents")
+    driver = models.ForeignKey(Driver, null=True, blank=True, on_delete=models.CASCADE, related_name="documents")
+    issuer = models.CharField(max_length=80, blank=True)
+    issued = models.DateField(null=True, blank=True)
+    expiry = models.DateField(null=True, blank=True, db_index=True)
+    remind_days = models.PositiveIntegerField("Remind days before", default=30, validators=[MaxValueValidator(365)])
+    link = models.URLField("Link to scan", blank=True, help_text="Where the scan is kept (Drive, SharePoint...).")
+    notes = models.TextField(blank=True)
+    last_reminder_on = models.DateField(null=True, blank=True)
+    created_utc = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["expiry", "id"]
+
+    def __str__(self):
+        return self.title or self.get_kind_display()
+
+    @property
+    def owner_name(self):
+        return self.device.name if self.device_id else (self.driver.name if self.driver_id else "")
+
+    def days_left(self, today=None):
+        if not self.expiry:
+            return None
+        return (self.expiry - (today or timezone.localdate())).days
+
+    def state(self, today=None):
+        d = self.days_left(today)
+        if d is None:
+            return "none"
+        if d < 0:
+            return "expired"
+        return "due" if d <= self.remind_days else "ok"

@@ -1,0 +1,12 @@
+<div class="table-responsive"><table class="table table-sm align-middle mb-0">
+  <thead><tr>{% if show_owner %}<th>Belongs to</th>{% endif %}<th>Document</th><th>Number</th><th>Expiry</th><th>State</th><th></th></tr></thead><tbody>
+  {% for r in documents %}<tr>
+    {% if show_owner %}<td>{% if r.d.device_id %}<i class="bi bi-truck"></i> <a href="{% url 'fleet_vehicle' r.d.device_id %}">{{ r.d.device.name }}</a>{% else %}<i class="bi bi-person"></i> <a href="{% url 'fleet_driver' r.d.driver_id %}">{{ r.d.driver.name }}</a>{% endif %}</td>{% endif %}
+    <td>{{ r.d.get_kind_display }}{% if r.d.title %}<div class="small text-body-secondary">{{ r.d.title }}</div>{% endif %}</td>
+    <td class="small">{{ r.d.number|default:"—" }}</td>
+    <td class="text-nowrap">{{ r.d.expiry|date:"d M Y"|default:"—" }}</td>
+    <td>{% if r.state == 'expired' %}<span class="badge text-bg-danger">Expired {{ r.left|stringformat:"d"|slice:"1:" }} d ago</span>{% elif r.state == 'due' %}<span class="badge text-bg-warning">{% if r.left == 0 %}Expires today{% else %}{{ r.left }} days left{% endif %}</span>{% elif r.state == 'ok' %}<span class="badge text-bg-success">Valid · {{ r.left }} d</span>{% else %}<span class="badge text-bg-secondary">No expiry</span>{% endif %}</td>
+    <td class="text-end text-nowrap">{% if r.d.link %}<a class="btn btn-outline-secondary btn-sm" href="{{ r.d.link }}" target="_blank" rel="noopener" title="Open scan"><i class="bi bi-box-arrow-up-right"></i></a>{% endif %}
+      {% if can_edit %}<a class="btn btn-outline-primary btn-sm" href="{% url 'fleet_document_edit' r.d.pk %}"><i class="bi bi-pencil"></i></a>{% endif %}</td>
+  </tr>{% empty %}<tr><td colspan="6" class="text-body-secondary small p-3">No documents yet.</td></tr>{% endfor %}
+</tbody></table></div>
