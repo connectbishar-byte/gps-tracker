@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import (AlertEvent, Expense, MaintenancePlan, WorkOrder, Incident, IncidentNote, Driver, DriverAssignment, FleetDocument, AlertRule, AVLRecord, Connection, Device, Geofence, GeofenceEvent, IOValue, PortEvent, RawPacket,
+from .models import (AlertEvent, Job, JobEvent, Expense, MaintenancePlan, WorkOrder, Incident, IncidentNote, Driver, DriverAssignment, FleetDocument, AlertRule, AVLRecord, Connection, Device, Geofence, GeofenceEvent, IOValue, PortEvent, RawPacket,
                      ReceiverHeartbeat, TestRun, WhatsAppMessage)
 
 
@@ -115,3 +115,16 @@ class IncidentAdmin(admin.ModelAdmin):
 admin.site.register(MaintenancePlan)
 admin.site.register(WorkOrder)
 admin.site.register(Expense)
+
+
+class JobEventInline(admin.TabularInline):
+    model = JobEvent
+    extra = 0
+
+
+@admin.register(Job)
+class JobAdmin(admin.ModelAdmin):
+    list_display = ("reference", "customer_name", "status", "device", "driver", "due_by", "created_utc")
+    list_filter = ("status",)
+    search_fields = ("reference", "customer_name")
+    inlines = [JobEventInline]

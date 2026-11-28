@@ -1,0 +1,30 @@
+{% extends "tracking/base.html" %}
+{% block title %}Dispatch · {{ FLEET.SITE_NAME }}{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+  <h5 class="m-0 me-auto"><i class="bi bi-box-seam"></i> Dispatch</h5>
+  <div class="btn-group btn-group-sm">
+    <a class="btn btn-outline-secondary {% if show == 'active' %}active{% endif %}" href="?show=active">Active</a>
+    <a class="btn btn-outline-secondary {% if show == 'delivered' %}active{% endif %}" href="?show=delivered">Delivered</a>
+    <a class="btn btn-outline-secondary {% if show == 'all' %}active{% endif %}" href="?show=all">All</a>
+  </div>
+  {% if can_edit %}<a class="btn btn-primary btn-sm" href="{% url 'job_new' %}"><i class="bi bi-plus-lg"></i> New job</a>{% endif %}
+</div>
+<div class="row g-2 mb-3 small">
+  <div class="col-4"><div class="card card-body py-2"><div class="text-body-secondary">New (no vehicle)</div><b class="fs-5 {% if counts.new %}text-danger{% endif %}">{{ counts.new }}</b></div></div>
+  <div class="col-4"><div class="card card-body py-2"><div class="text-body-secondary">Assigned</div><b class="fs-5">{{ counts.assigned }}</b></div></div>
+  <div class="col-4"><div class="card card-body py-2"><div class="text-body-secondary">On the way</div><b class="fs-5">{{ counts.picked_up }}</b></div></div>
+</div>
+<div class="card"><div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">
+  <thead><tr><th>Job</th><th>Customer</th><th>From → To</th><th>Vehicle / driver</th><th>Status</th><th>ETA</th><th>Deliver by</th></tr></thead><tbody>
+  {% for r in rows %}<tr>
+    <td><a href="{% url 'job' r.j.pk %}"><b>{{ r.j.reference }}</b></a>{% if r.j.load %}<div class="small text-body-secondary">{{ r.j.load }}</div>{% endif %}</td>
+    <td>{{ r.j.customer_name }}</td>
+    <td class="small">{{ r.j.pickup_address|default:"—"|truncatechars:40 }} → {{ r.j.dropoff_address|default:"—"|truncatechars:40 }}</td>
+    <td>{% if r.j.device %}{{ r.j.device.name }}{% if r.j.driver %}<div class="small text-body-secondary">{{ r.j.driver.name }}</div>{% endif %}{% else %}<span class="badge text-bg-danger">Not assigned</span>{% endif %}</td>
+    <td><span class="badge text-bg-{% if r.j.status == 'delivered' %}success{% elif r.j.status == 'picked_up' %}primary{% elif r.j.status == 'assigned' %}info{% elif r.j.status == 'new' %}secondary{% else %}dark{% endif %}">{{ r.j.get_status_display }}</span></td>
+    <td class="small">{% if r.eta %}{{ r.eta.minutes }} min · {{ r.eta.km }} km{% if not r.eta.fresh %} <i class="bi bi-exclamation-triangle text-warning" title="Vehicle position is over 30 min old"></i>{% endif %}<div class="text-body-secondary">to {% if r.j.status == 'assigned' %}pickup{% else %}delivery{% endif %}</div>{% else %}—{% endif %}</td>
+    <td class="small text-nowrap {% if r.late %}text-danger fw-bold{% endif %}">{{ r.j.due_by|date:"d M H:i"|default:"—" }}{% if r.late %} late{% endif %}</td>
+  </tr>{% empty %}<tr><td colspan="7" class="text-body-secondary p-3">No jobs here.{% if can_edit %} <a href="{% url 'job_new' %}">Create a job</a>.{% endif %}</td></tr>{% endfor %}
+</tbody></table></div></div>
+{% endblock %}

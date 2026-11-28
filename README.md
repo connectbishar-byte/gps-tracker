@@ -298,6 +298,20 @@ test); every step is kept on the incident's timeline. With **Escalate after N mi
 rule, an incident nobody acknowledged in time is escalated by WhatsApp automatically. The WhatsApp alert itself is
 sent by the rule straight away, with no AI involved.
 
+## Dispatch and customer tracking links
+
+**Dispatch** (`/dispatch/`): pickup / delivery jobs with customer, addresses and coordinates, load, pickup time and
+deliver-by time. The job page recommends free vehicles (enabled, Available or In use, not on another active job)
+nearest the pickup; assigning one fills in its current driver. Staff, or the job's own driver (a Driver linked to
+their login), move it along: Picked up → Delivered with the name of who received it (proof of delivery records the
+vehicle position), or Failed. Every step is kept in the job history. ETAs are rough straight-line estimates until a
+routing provider is chosen. Late jobs are shown in red.
+
+Each job has a **customer tracking link** (`/t/<token>/`, no login) that shows only the reference, status, ETA and
+the vehicle's position while it is on the way — no plate, driver or history. It stops working when the job is
+cancelled, tracking is switched off, or 6 h after delivery (or a set expiry). **Send to customer** sends it by
+WhatsApp.
+
 ## Maintenance, fuel, costs and reports
 
 **Maintenance** (`/maintenance/`): service plans per vehicle (every N km and/or N days, with when it was last done),

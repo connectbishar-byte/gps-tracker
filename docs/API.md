@@ -65,6 +65,9 @@ A user has one token until it is revoked. Signing out of the web UI does not rev
 | `GET/POST /maintenance-plans/` · `/maintenance-plans/{id}/` | service plans with `status` (`state` ok/due/overdue/unknown, `km_left`, `days_left`) | |
 | `GET/POST /work-orders/` · `/work-orders/{id}/` | work orders; saving one `done` with a plan moves the plan's last-done date / km | `device`, `status` |
 | `GET/POST /expenses/` · `/expenses/{id}/` | expenses (fuel with `litres`, `full_tank`, `odometer_km`) | `device`, `category`, `from`, `to` |
+| `GET/POST /jobs/` · `/jobs/{id}/` | dispatch jobs with `tracking_url`; creating one with a `device` assigns it | `status`, `active=1` |
+| `POST /jobs/{id}/status/` | `{"status": "assigned" \| "picked_up" \| "delivered" \| "failed" \| "cancelled", "text": "", "pod_name": "Received by"}` | |
+| `GET /jobs/{id}/recommend/` | free vehicles nearest the pickup, with distance and current driver | |
 | `GET /tests/` | connectivity self-test results | |
 | `POST /tests/run/` | run the 13-step protocol self-test (staff): `{"host": "127.0.0.1", "port": 5027, "mode": "full"}` | |
 

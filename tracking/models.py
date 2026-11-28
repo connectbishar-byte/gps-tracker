@@ -673,3 +673,67 @@ class Expense(models.Model):
 
     class Meta:
         ordering = ["-date", "-id"]
+
+
+def _tracking_token():
+    import secrets
+    return secrets.token_urlsafe(16)
+
+
+class Job(models.Model):
+    """A pickup / delivery job (FleetConnect 360 FLT-02) with an optional customer tracking link (FLT-07)."""
+    STATUSES = [("new", "New"), ("assigned", "Assigned"), ("picked_up", "Picked up / on the way"),
+                ("delivered", "Delivered"), ("failed", "Failed"), ("cancelled", "Cancelled")]
+    ACTIVE = ("assigned", "picked_up")
+    reference = models.CharField(max_length=30, unique=True, blank=True)
+    customer_name = models.CharField(max_length=120)
+    customer_phone = models.CharField(max_length=30, blank=True, help_text="For the tracking link on WhatsApp")
+    pickup_address = models.CharField(max_length=300, blank=True)
+    pickup_lat = models.FloatField(null=True, blank=True, validators=[MinValueValidator(-90), MaxValueValidator(90)])
+    pickup_lon = models.FloatField(null=True, blank=True, validators=[MinValueValidator(-180), MaxValueValidator(180)])
+    dropoff_address = models.CharField("Delivery address", max_length=300, blank=True)
+    dropoff_lat = models.FloatField(null=True, blank=True, validators=[MinValueValidator(-90), MaxValueValidator(90)])
+    dropoff_lon = models.FloatField(null=True, blank=True, validators=[MinValueValidator(-180), MaxValueValidator(180)])
+    load = models.CharField("Load / requirement", max_length=120, blank=True, help_text="e.g. 2 pallets, cold box, 8 passengers")
+    scheduled = models.DateTimeField("Pickup time", null=True, blank=True)
+    due_by = models.DateTimeField("Deliver by", null=True, blank=True)
+    device = models.ForeignKey(Device, null=True, blank=True, on_delete=models.SET_NULL, related_name="jobs")
+    driver = models.ForeignKey("Driver", null=True, blank=True, on_delete=models.SET_NULL, related_name="jobs")
+    status = models.CharField(max_length=10, choices=STATUSES, default="new", db_index=True)
+    assigned_utc = models.DateTimeField(null=True, blank=True)
+    picked_up_utc = models.DateTimeField(null=True, blank=True)
+    finished_utc = models.DateTimeField(null=True, blank=True)
+    pod_name = models.CharField("Received by", max_length=120, blank=True)
+    pod_notes = models.TextField("Delivery notes", blank=True)
+    pod_lat = models.FloatField(null=True, blank=True)
+    pod_lon = models.FloatField(null=True, blank=True)
+    tracking_token = models.CharField(max_length=40, unique=True, default=_tracking_token)
+    tracking_enabled = models.BooleanField("Customer tracking link", default=True)
+    tracking_expires = models.DateTimeField(null=True, blank=True, help_text="Blank = 6 hours after delivery")
+    notes = models.TextField(blank=True)
+    created_by = models.CharField(max_length=150, blank=True)
+    created_utc = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        ordering = ["-created_utc", "-id"]
+
+    def __str__(self):
+        return f"{self.reference} {self.customer_name}"
+
+    def save(self, *a, **kw):
+        super().save(*a, **kw)
+        if not self.reference:
+            self.reference = f"JOB-{self.pk:05d}"
+            super().save(update_fields=["reference"])
+
+
+class JobEvent(models.Model):
+    """Status history of a job (audit)."""
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="events")
+    created_utc = models.DateTimeField(default=timezone.now)
+    user = models.CharField(max_length=150, blank=True)
+    status = models.CharField(max_length=10, blank=True)
+    text = models.CharField(max_length=500, blank=True)
+
+    class Meta:
+        ordering = ["created_utc", "id"]
