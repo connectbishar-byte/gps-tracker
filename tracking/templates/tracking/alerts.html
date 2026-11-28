@@ -19,7 +19,7 @@
       <thead><tr><th>Rule</th><th>When</th><th>Vehicles</th><th>Send to</th><th class="text-end"></th></tr></thead><tbody>
       {% for r in rules %}<tr class="{% if not r.active %}text-body-secondary{% endif %}">
         <td><b>{{ r.name }}</b>{% if not r.active %} <span class="badge text-bg-secondary">Paused</span>{% endif %}</td>
-        <td>{{ r.kind_label }}{% if r.kind == "overspeed" %} · over {{ r.speed_limit }} km/h{% if r.duration_s %} for {{ r.duration_s }} s{% endif %}{% elif r.kind == "idle" %} · {{ r.duration_s|floatformat:0 }} s{% endif %}{% if r.geofence %} · {{ r.geofence.name }}{% elif r.kind == "geofence_enter" or r.kind == "geofence_exit" %} · any zone{% endif %}</td>
+        <td>{{ r.kind_label }}{% if r.kind == "overspeed" %} · over {{ r.speed_limit }} km/h{% if r.duration_s %} for {{ r.duration_s }} s{% endif %}{% elif r.kind == "idle" or r.kind == "offline" or r.kind == "towing" %} · {{ r.duration_s|floatformat:0 }} s{% elif r.kind == "power_loss" %} · below {{ r.threshold|default:6 }} V{% endif %}{% if r.create_incident %} <span class="badge text-bg-danger">incident</span>{% endif %}{% if r.geofence %} · {{ r.geofence.name }}{% elif r.kind == "geofence_enter" or r.kind == "geofence_exit" %} · any zone{% endif %}</td>
         <td>{% for d in r.devices.all %}{{ d.name }}{% if not forloop.last %}, {% endif %}{% empty %}All vehicles{% endfor %}</td>
         <td>{% for c in r.channels %}<span class="badge text-bg-{% if c == 'whatsapp' %}success{% else %}secondary{% endif %}">{% if c == 'whatsapp' %}WhatsApp{% else %}SMS{% endif %}</span> {% empty %}<span class="text-danger small">no channel</span>{% endfor %}
           <span class="small">{% if r.recipients %}{{ r.recipients|truncatechars:40 }}{% else %}default numbers{% endif %}</span></td>
@@ -39,6 +39,10 @@
         <a class="btn btn-outline-primary btn-sm" href="{% url 'alert_rule_new' %}?kind=idle"><i class="bi bi-hourglass-split"></i> Idling too long</a>
         <a class="btn btn-outline-primary btn-sm" href="{% url 'alert_rule_new' %}?kind=crash"><i class="bi bi-exclamation-octagon"></i> Crash</a>
         <a class="btn btn-outline-primary btn-sm" href="{% url 'alert_rule_new' %}?kind=harsh"><i class="bi bi-lightning"></i> Harsh driving</a>
+        <a class="btn btn-outline-primary btn-sm" href="{% url 'alert_rule_new' %}?kind=sos"><i class="bi bi-life-preserver"></i> SOS button</a>
+        <a class="btn btn-outline-primary btn-sm" href="{% url 'alert_rule_new' %}?kind=power_loss"><i class="bi bi-plug"></i> Power cut</a>
+        <a class="btn btn-outline-primary btn-sm" href="{% url 'alert_rule_new' %}?kind=towing"><i class="bi bi-truck-flatbed"></i> Towing</a>
+        <a class="btn btn-outline-primary btn-sm" href="{% url 'alert_rule_new' %}?kind=offline"><i class="bi bi-wifi-off"></i> Offline</a>
       </div>{% endif %}
     </div>
     {% endif %}

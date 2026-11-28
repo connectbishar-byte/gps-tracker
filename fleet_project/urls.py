@@ -3,7 +3,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
-from tracking import alerts_views, driverscore, fleet, geofence_views, vehicledash, views
+from tracking import alerts_views, driverscore, fleet, geofence_views, incidents, vehicledash, views
 
 urlpatterns = [
     path("", views.dashboard, name="dashboard"),
@@ -40,6 +40,8 @@ urlpatterns = [
     path("geofences/events/", geofence_views.api_geofence_events, name="api_geofence_events"),
     path("terminal/", views.terminal, name="terminal"),
     path("", include("tracking.places_urls")),  # car view /drive/ and saved places /places/
+    path("incidents/", incidents.incidents_page, name="incidents"),
+    path("incidents/<int:pk>/", incidents.incident_page, name="incident"),
     path("fleet/", fleet.fleet_page, name="fleet"),
     path("fleet/vehicles/<int:pk>/", fleet.vehicle_page, name="fleet_vehicle"),
     path("fleet/drivers/new/", fleet.driver_page, name="fleet_driver_new"),

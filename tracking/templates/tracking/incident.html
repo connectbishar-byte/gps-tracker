@@ -1,0 +1,58 @@
+{% extends "tracking/base.html" %}
+{% block title %}{{ inc.title }} · {{ FLEET.SITE_NAME }}{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+  <a href="{% url 'incidents' %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i></a>
+  <h5 class="m-0 me-auto">{{ inc.title }}</h5>
+  <span class="badge text-bg-{% if inc.severity == 'critical' %}danger{% elif inc.severity == 'high' %}warning{% else %}secondary{% endif %}">{{ inc.get_severity_display }}</span>
+  <span class="badge text-bg-{% if inc.status == 'open' %}danger{% elif inc.status == 'escalated' %}warning{% elif inc.status == 'acknowledged' %}primary{% else %}success{% endif %}">{{ inc.get_status_display }}</span>
+</div>
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="card mb-3"><div class="card-body small">
+      <dl class="row mb-0">
+        <dt class="col-5">Vehicle</dt><dd class="col-7"><a href="{% url 'fleet_vehicle' inc.device_id %}">{{ inc.device.name }}</a>{% if inc.device.plate %} · {{ inc.device.plate }}{% endif %}</dd>
+        <dt class="col-5">Driver</dt><dd class="col-7">{% if inc.driver %}<a href="{% url 'fleet_driver' inc.driver_id %}">{{ inc.driver.name }}</a>{% else %}<span class="text-body-secondary">Unknown / unassigned</span>{% endif %}</dd>
+        <dt class="col-5">Happened</dt><dd class="col-7">{{ inc.timestamp_utc|date:"d M Y H:i:s" }}</dd>
+        <dt class="col-5">Opened</dt><dd class="col-7">{{ inc.opened_utc|date:"d M Y H:i:s" }}</dd>
+        {% if inc.occurrences > 1 %}<dt class="col-5">Times</dt><dd class="col-7">{{ inc.occurrences }} (last {{ inc.last_seen_utc|date:"d M H:i" }})</dd>{% endif %}
+        <dt class="col-5">Where</dt><dd class="col-7">{% if inc.latitude is not None %}<a href="https://maps.google.com/?q={{ inc.latitude }},{{ inc.longitude }}" target="_blank" rel="noopener">{{ inc.latitude|floatformat:5 }}, {{ inc.longitude|floatformat:5 }}</a> · {{ inc.speed }} km/h{% else %}no GPS position{% endif %}</dd>
+        <dt class="col-5">Acknowledged</dt><dd class="col-7">{% if inc.acknowledged_utc %}{{ inc.acknowledged_utc|date:"d M H:i" }} by {{ inc.acknowledged_by }}{% else %}—{% endif %}</dd>
+        {% if inc.escalated_utc %}<dt class="col-5">Escalated</dt><dd class="col-7">{{ inc.escalated_utc|date:"d M H:i" }}</dd>{% endif %}
+        {% if inc.closed_utc %}<dt class="col-5">Closed</dt><dd class="col-7">{{ inc.closed_utc|date:"d M H:i" }} by {{ inc.closed_by }} · {{ inc.get_resolution_display }}</dd>{% endif %}
+        <dt class="col-5">Rule</dt><dd class="col-7">{% if inc.rule %}{% if user.is_staff %}<a href="{% url 'alert_rule_edit' inc.rule_id %}">{{ inc.rule.name }}</a>{% else %}{{ inc.rule.name }}{% endif %}{% else %}—{% endif %}</dd>
+      </dl>
+    </div></div>
+    <form method="post" class="card">{% csrf_token %}
+      <div class="card-header">Action</div>
+      <div class="card-body">
+        <textarea name="text" class="form-control form-control-sm mb-2" rows="3" placeholder="Note (what was done, who was called…)"></textarea>
+        {% if inc.status != 'closed' %}
+        <div class="d-flex flex-wrap gap-2 mb-2">
+          {% if not inc.acknowledged_utc %}<button class="btn btn-primary btn-sm" name="action" value="ack"><i class="bi bi-hand-thumbs-up"></i> Acknowledge</button>{% endif %}
+          <button class="btn btn-outline-warning btn-sm" name="action" value="escalate"><i class="bi bi-arrow-up-circle"></i> Escalate</button>
+          <button class="btn btn-outline-secondary btn-sm" name="action" value="comment"><i class="bi bi-chat-left-text"></i> Add note</button>
+        </div>
+        <div class="input-group input-group-sm">
+          <select name="resolution" class="form-select form-select-sm" aria-label="Resolution">{% for k, l in resolutions %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select>
+          <button class="btn btn-success" name="action" value="close"><i class="bi bi-check2-circle"></i> Close</button>
+        </div>
+        {% else %}
+        <div class="d-flex gap-2"><button class="btn btn-outline-secondary btn-sm" name="action" value="comment">Add note</button>
+          <button class="btn btn-outline-danger btn-sm" name="action" value="reopen">Reopen</button></div>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+  <div class="col-lg-7">
+    <div class="card"><div class="card-header">Timeline (audit trail)</div>
+      <ul class="list-group list-group-flush">
+      {% for n in notes %}<li class="list-group-item small">
+        <div class="d-flex"><b>{{ n.get_action_display }}</b>{% if n.user %}<span class="ms-2 text-body-secondary">{{ n.user }}</span>{% endif %}<span class="ms-auto text-body-secondary">{{ n.created_utc|date:"d M Y H:i:s" }}</span></div>
+        {% if n.text %}<div style="white-space: pre-wrap">{{ n.text|urlize }}</div>{% endif %}
+      </li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}

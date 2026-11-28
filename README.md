@@ -285,6 +285,19 @@ POST /api/v1/whatsapp/send-media/     {"to_number": "...", "customer_name": "Ali
 `https://<site>/whatsapp/webhook/` with the verify token above, field **messages**. The log under the WhatsApp card
 shows every send (payload, Meta's answer, request id, URL and masked token) and every raw webhook event.
 
+## Incidents and asset security
+
+Alert rules now also watch for **SOS / panic button** (a digital input, DIN2 = AVL 2 by default), **power cut /
+tracker unplugged** (AVL 252, or vehicle voltage AVL 66 below a limit, default 6 V), **towing** (AVL 246, or moving
+over 10 km/h with the ignition off) and **no data (offline)** for a set time (checked every minute by the receiver).
+
+Tick **Open an incident** on a rule (it is ticked by default for crash, SOS, power cut, towing and offline) and every
+alert also opens an incident on **Incidents** (`/incidents/`). Repeats on the same vehicle are counted on the open
+incident. People **acknowledge**, **escalate**, add notes and **close** with a resolution (genuine, false alarm,
+test); every step is kept on the incident's timeline. With **Escalate after N minutes** and escalation numbers on the
+rule, an incident nobody acknowledged in time is escalated by WhatsApp automatically. The WhatsApp alert itself is
+sent by the rule straight away, with no AI involved.
+
 ## Fleet registry — vehicles, drivers, assignments, documents
 
 **Fleet** (`/fleet/`) is the registry from the FleetConnect 360 scope (FLT-01, FLT-05, IVM-02):

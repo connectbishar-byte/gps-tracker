@@ -19,7 +19,9 @@
           <div class="form-text small">Zones are drawn on the <a href="{% url 'geofences' %}">Geofences</a> page.</div></div>
         <div class="row g-2 mb-2">
           <div class="col-sm-6 rf rf-overspeed"><label class="form-label small mb-1" for="{{ form.speed_limit.id_for_label }}">Speed limit (km/h)</label>{{ form.speed_limit }}{{ form.speed_limit.errors }}</div>
-          <div class="col-sm-6 rf rf-overspeed rf-idle"><label class="form-label small mb-1" for="{{ form.duration_min.id_for_label }}"><span class="rf rf-overspeed">For at least (minutes, 0 = at once)</span><span class="rf rf-idle">Idle for (minutes)</span></label>{{ form.duration_min }}{{ form.duration_min.errors }}</div>
+          <div class="col-sm-6 rf rf-overspeed rf-idle rf-towing rf-offline"><label class="form-label small mb-1" for="{{ form.duration_min.id_for_label }}"><span class="rf rf-overspeed rf-towing">For at least (minutes, 0 = at once)</span><span class="rf rf-idle">Idle for (minutes)</span><span class="rf rf-offline">No data for (minutes, default 60)</span></label>{{ form.duration_min }}{{ form.duration_min.errors }}</div>
+          <div class="col-sm-6 rf rf-power_loss"><label class="form-label small mb-1" for="{{ form.threshold.id_for_label }}">Alert below (volts, default 6)</label>{{ form.threshold }}{{ form.threshold.errors }}</div>
+          <div class="col-sm-6 rf rf-sos"><label class="form-label small mb-1" for="{{ form.io_id.id_for_label }}">Button input (AVL ID, default 2 = DIN2)</label>{{ form.io_id }}{{ form.io_id.errors }}</div>
         </div>
         <div class="form-text small mb-2" id="kindHelp"></div>
         <label class="form-label small mb-1">Vehicles <span class="text-body-secondary">(none ticked = all)</span></label>
@@ -37,6 +39,10 @@
         <div class="form-text small mb-2">Blank = <span id="defaultText" class="font-monospace"></span><br>You can use
           {% for p in placeholders %}<code>{{ "{" }}{{ p }}{{ "}" }}</code>{% if not forloop.last %} {% endif %}{% endfor %}.</div>
         <div class="row g-2"><div class="col-sm-6"><label class="form-label small mb-1" for="{{ form.cooldown_min.id_for_label }}">At most one alert per vehicle every (minutes)</label>{{ form.cooldown_min }}</div></div>
+        <h6 class="text-uppercase small text-body-secondary mt-3">Incident handling</h6>
+        <div class="form-check form-switch mb-1">{{ form.create_incident }}<label class="form-check-label small" for="{{ form.create_incident.id_for_label }}">Open an incident on the <a href="{% url 'incidents' %}">Incidents</a> page to acknowledge, escalate and close</label></div>
+        <div class="row g-2"><div class="col-sm-6"><label class="form-label small mb-1" for="{{ form.escalate_after_min.id_for_label }}">Escalate if not acknowledged in (minutes, 0 = never)</label>{{ form.escalate_after_min }}{{ form.escalate_after_min.errors }}</div>
+          <div class="col-sm-6"><label class="form-label small mb-1" for="{{ form.escalation_recipients.id_for_label }}">Escalation numbers</label>{{ form.escalation_recipients }}{{ form.escalation_recipients.errors }}</div></div>
       </div>
     </div>
   </div>
@@ -62,6 +68,10 @@
     crash: "Needs Crash detection enabled on the tracker (Teltonika Configurator → Features → Crash detection, AVL 247).",
     harsh: "Harsh acceleration, braking or cornering. Needs Green driving / Eco driving enabled on the tracker (AVL 253).",
     ignition_on: "Sends when the ignition turns on (AVL 239).", ignition_off: "Sends when the ignition turns off (AVL 239).",
+    sos: "Sends when the SOS / panic button input goes on. Wire the button to a digital input (DIN2 = AVL 2 by default) and send that input in the tracker's I/O settings.",
+    power_loss: "Sends when the tracker reports it was unplugged (AVL 252) or the vehicle voltage (AVL 66) drops below the limit. One alert until power is back.",
+    towing: "Sends when the tracker's towing detection fires (AVL 246), or the vehicle moves faster than 10 km/h with the ignition off for this long.",
+    offline: "Sends when a vehicle has sent nothing for this long (checked every minute). Fresh data ends the episode.",
   };
   function sync() {
     const k = kind.value;
