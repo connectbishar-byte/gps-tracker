@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import (AlertEvent, Incident, IncidentNote, Driver, DriverAssignment, FleetDocument, AlertRule, AVLRecord, Connection, Device, Geofence, GeofenceEvent, IOValue, PortEvent, RawPacket,
+from .models import (AlertEvent, Expense, MaintenancePlan, WorkOrder, Incident, IncidentNote, Driver, DriverAssignment, FleetDocument, AlertRule, AVLRecord, Connection, Device, Geofence, GeofenceEvent, IOValue, PortEvent, RawPacket,
                      ReceiverHeartbeat, TestRun, WhatsAppMessage)
 
 
@@ -110,3 +110,8 @@ class IncidentAdmin(admin.ModelAdmin):
     list_display = ("opened_utc", "title", "severity", "status", "occurrences", "acknowledged_by", "closed_by")
     list_filter = ("status", "severity", "kind")
     inlines = [IncidentNoteInline]
+
+
+admin.site.register(MaintenancePlan)
+admin.site.register(WorkOrder)
+admin.site.register(Expense)

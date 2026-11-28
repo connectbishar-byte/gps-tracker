@@ -62,6 +62,9 @@ A user has one token until it is revoked. Signing out of the web UI does not rev
 | `GET/POST /documents/` · `GET/PUT/PATCH/DELETE /documents/{id}/` | vehicle or driver documents with `state` (`ok`/`due`/`expired`/`none`) and `days_left`; set exactly one of `device` or `driver` | `due=1` |
 | `GET /incidents/` · `GET /incidents/{id}/` | incidents with their audit trail (`notes`), newest first, paginated | `status`, `open=1`, `device` |
 | `POST /incidents/{id}/action/` | `{"action": "ack" \| "escalate" \| "comment" \| "close" \| "reopen", "text": "...", "resolution": "genuine" \| "false_alarm" \| "test" \| "other"}` | |
+| `GET/POST /maintenance-plans/` · `/maintenance-plans/{id}/` | service plans with `status` (`state` ok/due/overdue/unknown, `km_left`, `days_left`) | |
+| `GET/POST /work-orders/` · `/work-orders/{id}/` | work orders; saving one `done` with a plan moves the plan's last-done date / km | `device`, `status` |
+| `GET/POST /expenses/` · `/expenses/{id}/` | expenses (fuel with `litres`, `full_tank`, `odometer_km`) | `device`, `category`, `from`, `to` |
 | `GET /tests/` | connectivity self-test results | |
 | `POST /tests/run/` | run the 13-step protocol self-test (staff): `{"host": "127.0.0.1", "port": 5027, "mode": "full"}` | |
 

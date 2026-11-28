@@ -298,6 +298,18 @@ test); every step is kept on the incident's timeline. With **Escalate after N mi
 rule, an incident nobody acknowledged in time is escalated by WhatsApp automatically. The WhatsApp alert itself is
 sent by the rule straight away, with no AI involved.
 
+## Maintenance, fuel, costs and reports
+
+**Maintenance** (`/maintenance/`): service plans per vehicle (every N km and/or N days, with when it was last done),
+listed as Due inside their reminder window and Overdue after; work orders with workshop, cost and downtime (a planned
+service marked Done moves its plan forward); expenses by category (fuel, tolls, parking, fines, tyres, repairs…) and
+fuel consumption in L/100 km between full-tank fills. A fill more than 30 % above the vehicle's usual is flagged
+**Check** — a suspected anomaly, never a confirmed theft. Service reminders go out with the document reminders.
+
+**Reports** (`/reports/`): utilization / mileage / idle time, trips with their drivers, costs per vehicle (AED and
+AED per km), maintenance, and device availability (hours with data, offline and power-cut alerts) for any date
+range, each with **CSV** and **Print / PDF**.
+
 ## Fleet registry — vehicles, drivers, assignments, documents
 
 **Fleet** (`/fleet/`) is the registry from the FleetConnect 360 scope (FLT-01, FLT-05, IVM-02):

@@ -202,6 +202,25 @@ PAGES = {
                  "Close with a resolution (genuine, false alarm, test) so the false alarm rate is tracked."],
         "ask": ["Which incidents are still open?", "How do I get an SOS alert?"],
     },
+    "maintenance": {
+        "title": "Maintenance and costs",
+        "about": "Service plans (every N km and/or N days) with what is due or overdue, work orders with cost and "
+                 "downtime, expenses (fuel, tolls, fines, tyres…) and fuel consumption per fill.",
+        "tips": ["Add a service plan with when it was last done; it turns Due inside the reminder window and Overdue after.",
+                 "Mark a work order linked to a plan Done and the plan's last-done date and km move forward.",
+                 "Enter fuel with litres, odometer and Full tank for L/100 km; fills over 30 % above the vehicle's usual are flagged to check (not proof of theft).",
+                 "Service reminders go to the default WhatsApp numbers with the document reminders."],
+        "ask": ["Which vehicles are due for service?", "How much did we spend on fuel this month?"],
+    },
+    "reports": {
+        "title": "Reports",
+        "about": "Fleet reports for a date range: utilization, mileage and idle time, trips with drivers, costs, "
+                 "maintenance and device availability. Each downloads as CSV; Print saves a PDF.",
+        "tips": ["Pick the report and the dates, then Show. CSV opens in Excel.",
+                 "Utilization % is the share of days in the range the vehicle made at least one trip.",
+                 "Availability % is the share of hours in which the tracker sent data."],
+        "ask": ["Which vehicle idled the most last week?"],
+    },
     "fleet": {
         "title": "Fleet registry",
         "about": "Vehicle details (type, registration, odometer, capacity, SIM, availability), drivers, who is driving "

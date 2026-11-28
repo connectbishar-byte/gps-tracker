@@ -2,7 +2,7 @@
 Background checks that run inside the TCP receiver (every ~10 minutes, from its heartbeat loop), so they work on a
 server with no cron or systemd timers. Each task runs at most once per its interval and never raises.
 
-* fleet document expiry reminders: hourly between 08:00 and 20:00 local time (each document at most weekly)
+* fleet document expiry and vehicle service reminders: hourly between 08:00 and 20:00 local time (each document at most weekly)
 * "No data (offline)" alert rules: every minute
 * incident auto-escalation (not acknowledged in time): every minute
 
@@ -32,9 +32,11 @@ def _reminders():
     if not 8 <= timezone.localtime().hour < 20:
         _last.pop("reminders", None)  # try again at 08:00
         return
-    res = fleet.send_reminders()
-    if res["count"]:
-        log.info("document reminders: %s", res)
+    from . import maintenance
+    for name, fn in (("document", fleet.send_reminders), ("service", maintenance.send_reminders)):
+        res = fn()
+        if res["count"]:
+            log.info("%s reminders: %s", name, res)
 
 
 def _offline():
