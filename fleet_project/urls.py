@@ -3,7 +3,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
-from tracking import alerts_views, driverscore, fleet, geofence_views, incidents, maintenance, vehicledash, views
+from tracking import alerts_views, dispatch, driverscore, fleet, geofence_views, incidents, maintenance, vehicledash, views
 
 urlpatterns = [
     path("", views.dashboard, name="dashboard"),
@@ -42,6 +42,12 @@ urlpatterns = [
     path("", include("tracking.places_urls")),  # car view /drive/ and saved places /places/
     path("incidents/", incidents.incidents_page, name="incidents"),
     path("incidents/<int:pk>/", incidents.incident_page, name="incident"),
+    path("dispatch/", dispatch.jobs_page, name="dispatch"),
+    path("dispatch/new/", dispatch.job_page, name="job_new"),
+    path("dispatch/<int:pk>/", dispatch.job_page, name="job"),
+    path("dispatch/<int:pk>/action/", dispatch.job_action, name="job_action"),
+    path("t/<str:token>/", dispatch.track_page, name="track"),
+    path("t/<str:token>/data.json", dispatch.track_data, name="track_data"),
     path("maintenance/", maintenance.maintenance_page, name="maintenance"),
     path("maintenance/plans/new/", maintenance.plan_edit, name="plan_new"),
     path("maintenance/plans/<int:pk>/", maintenance.plan_edit, name="plan_edit"),

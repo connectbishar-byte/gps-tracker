@@ -1,0 +1,59 @@
+{% extends "tracking/base.html" %}
+{% block title %}{% if job %}{{ job.reference }}{% else %}New job{% endif %} · {{ FLEET.SITE_NAME }}{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+  <a href="{% url 'dispatch' %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i></a>
+  <h5 class="m-0 me-auto">{% if job %}{{ job.reference }} · {{ job.customer_name }}{% else %}New job{% endif %}</h5>
+  {% if job %}<span class="badge fs-6 text-bg-{% if job.status == 'delivered' %}success{% elif job.status == 'picked_up' %}primary{% elif job.status == 'assigned' %}info{% elif job.status == 'new' %}secondary{% else %}dark{% endif %}">{{ job.get_status_display }}</span>{% endif %}
+</div>
+<div class="row g-3">
+  <div class="{% if job %}col-xl-7{% else %}col-12{% endif %}">
+    <form method="post" class="card">{% csrf_token %}
+      <div class="card-header">Job details</div>
+      <div class="card-body">
+        {% if form.non_field_errors %}<div class="alert alert-danger py-2">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+        <div class="row g-2">{% for f in form %}{% include "tracking/_fleet_field.html" with f=f cls="col-sm-6 col-lg-4" %}{% endfor %}</div>
+        <div class="form-text small mt-2">Coordinates: right-click a spot in Google Maps and click the numbers to copy them. Pick a vehicle to assign it now; its current driver is filled in.</div>
+      </div>
+      {% if can_edit %}<div class="card-footer"><button class="btn btn-primary btn-sm" name="save" value="1"><i class="bi bi-check2"></i> Save job</button></div>{% endif %}
+    </form>
+  </div>
+  {% if job %}<div class="col-xl-5">
+    {% if can_drive and job.status != 'delivered' and job.status != 'cancelled' and job.status != 'failed' %}
+    <form method="post" action="{% url 'job_action' job.pk %}" class="card mb-3">{% csrf_token %}
+      <div class="card-header">Progress</div>
+      <div class="card-body">
+        {% if eta %}<p class="small mb-2"><i class="bi bi-clock"></i> About <b>{{ eta.minutes }} min</b> ({{ eta.km }} km) to the {% if job.status == 'assigned' %}pickup{% else %}delivery address{% endif %}{% if not eta.fresh %} <span class="text-warning">· position over 30 min old</span>{% endif %}. <span class="text-body-secondary">Rough estimate.</span></p>{% endif %}
+        <textarea name="text" class="form-control form-control-sm mb-2" rows="2" placeholder="Note"></textarea>
+        <div class="d-flex flex-wrap gap-2 mb-2">
+          {% if job.status == 'assigned' %}<button class="btn btn-primary btn-sm" name="action" value="picked_up"><i class="bi bi-box-arrow-up"></i> Picked up</button>{% endif %}
+          <button class="btn btn-outline-danger btn-sm" name="action" value="failed">Failed</button>
+          {% if can_edit %}<button class="btn btn-outline-secondary btn-sm" name="action" value="cancelled" onclick="return confirm('Cancel this job? The tracking link stops working.')">Cancel job</button>{% endif %}
+        </div>
+        {% if job.status == 'picked_up' or job.status == 'assigned' %}<div class="input-group input-group-sm"><input name="pod_name" class="form-control" placeholder="Received by (name)" aria-label="Received by">
+          <button class="btn btn-success" name="action" value="delivered"><i class="bi bi-check2-circle"></i> Delivered</button></div>{% endif %}
+      </div>
+    </form>{% endif %}
+    {% if job.status == 'delivered' %}<div class="card mb-3"><div class="card-header">Proof of delivery</div><div class="card-body small">
+      Delivered {{ job.finished_utc|date:"d M Y H:i" }}{% if job.pod_name %} · received by <b>{{ job.pod_name }}</b>{% endif %}
+      {% if job.pod_lat is not None %} · <a href="https://maps.google.com/?q={{ job.pod_lat }},{{ job.pod_lon }}" target="_blank" rel="noopener">vehicle position</a>{% endif %}
+      {% if job.pod_notes %}<div class="mt-1" style="white-space:pre-wrap">{{ job.pod_notes }}</div>{% endif %}</div></div>{% endif %}
+    {% if recommended and can_edit %}<div class="card mb-3"><div class="card-header">Recommended vehicles <span class="small text-body-secondary">(nearest to pickup, free)</span></div>
+      <ul class="list-group list-group-flush">{% for r in recommended %}<li class="list-group-item d-flex align-items-center gap-2 small">
+        <div class="me-auto"><b>{{ r.v.name }}</b> {% if r.v.capacity %}· {{ r.v.capacity }}{% endif %}<div class="text-body-secondary">{% if r.km is not None %}{{ r.km }} km away{% else %}pickup has no coordinates{% endif %}{% if r.driver %} · {{ r.driver.driver.name }}{% else %} · no driver{% endif %}{% if r.stale %} · <span class="text-warning">position old</span>{% endif %}</div></div>
+        <form method="post" action="{% url 'job_action' job.pk %}">{% csrf_token %}<input type="hidden" name="device" value="{{ r.v.pk }}"><button class="btn btn-outline-primary btn-sm" name="action" value="assign">Assign</button></form>
+      </li>{% endfor %}</ul></div>{% endif %}
+    <div class="card mb-3"><div class="card-header">Customer tracking link</div><div class="card-body small">
+      {% if link_active %}<div class="input-group input-group-sm mb-2"><input class="form-control font-monospace" value="{{ link }}" readonly id="trackLink" aria-label="Tracking link">
+        <button class="btn btn-outline-secondary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('trackLink').value)"><i class="bi bi-clipboard"></i></button>
+        <a class="btn btn-outline-secondary" href="{{ link }}" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i></a></div>
+        {% if can_edit %}<form method="post" action="{% url 'job_action' job.pk %}">{% csrf_token %}<button class="btn btn-outline-success btn-sm" name="action" value="send_link"><i class="bi bi-whatsapp"></i> Send to customer</button></form>{% endif %}
+        <div class="text-body-secondary mt-2">Shows only the reference, status, ETA and the vehicle's position while it is on the way. Stops working 6 h after delivery (or at the expiry you set).</div>
+      {% else %}<span class="text-body-secondary">The link is off or has expired.</span>{% endif %}
+    </div></div>
+    <div class="card"><div class="card-header">History</div><ul class="list-group list-group-flush">
+      {% for e in events %}<li class="list-group-item small d-flex gap-2"><span class="text-nowrap text-body-secondary">{{ e.created_utc|date:"d M H:i" }}</span><span>{% if e.status %}<b>{{ e.status }}</b> {% endif %}{{ e.text }}{% if e.user %} <span class="text-body-secondary">· {{ e.user }}</span>{% endif %}</span></li>{% endfor %}
+    </ul></div>
+  </div>{% endif %}
+</div>
+{% endblock %}

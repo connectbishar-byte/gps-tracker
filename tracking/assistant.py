@@ -202,6 +202,17 @@ PAGES = {
                  "Close with a resolution (genuine, false alarm, test) so the false alarm rate is tracked."],
         "ask": ["Which incidents are still open?", "How do I get an SOS alert?"],
     },
+    "dispatch": {
+        "title": "Dispatch",
+        "about": "Pickup and delivery jobs: create a job, assign a vehicle (the nearest free ones are recommended), "
+                 "track it to the pickup and the delivery address, record who received it, and share a tracking link "
+                 "with the customer.",
+        "tips": ["Enter pickup and delivery coordinates for recommendations and ETAs (right-click in Google Maps to copy them).",
+                 "Picking a vehicle assigns the job and fills in that vehicle's current driver.",
+                 "The customer link shows only the status, ETA and the vehicle while it is on the way, and expires 6 h after delivery.",
+                 "ETAs are rough straight-line estimates until a routing provider is chosen."],
+        "ask": ["Which jobs are late?", "How do I send the customer a tracking link?"],
+    },
     "maintenance": {
         "title": "Maintenance and costs",
         "about": "Service plans (every N km and/or N days) with what is due or overdue, work orders with cost and "

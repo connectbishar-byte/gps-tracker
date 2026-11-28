@@ -1,0 +1,48 @@
+{% load static %}<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex"><title>{% if d %}Delivery {{ d.reference }}{% else %}Tracking link{% endif %} · {{ FLEET.SITE_NAME }}</title>
+<link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap.min.css' %}">
+<link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
+<style>body{background:#eef2f5} #map{height:55vh;border-radius:.5rem} .wrap{max-width:720px;margin:0 auto;padding:16px}</style>
+</head><body><div class="wrap">
+<h5 class="mb-1">{{ FLEET.SITE_NAME }}</h5>
+{% if expired %}<div class="alert alert-secondary mt-3">This tracking link is not valid any more.</div>
+{% else %}
+<div class="card mb-3"><div class="card-body">
+  <div class="text-body-secondary small">Delivery {{ d.reference }}</div>
+  <div class="fs-4 fw-semibold" id="st">{{ d.status_label }}</div>
+  <div id="eta" class="mt-1"></div>
+  {% if d.destination %}<div class="small text-body-secondary mt-1">To: {{ d.destination }}</div>{% endif %}
+</div></div>
+<div id="map"></div>
+<div class="small text-body-secondary mt-2" id="upd"></div>
+{{ d|json_script:"trk" }}
+<script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+<script>
+(function () {
+  let d = JSON.parse(document.getElementById("trk").textContent);
+  const map = L.map("map", {zoomControl: true}).setView(d.dest || d.vehicle || [24.45, 54.38], 12);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom: 19, attribution: "© OpenStreetMap"}).addTo(map);
+  let dest = null, veh = null;
+  const fmt = s => new Date(s).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
+  function draw() {
+    document.getElementById("st").textContent = d.status_label;
+    let eta = "";
+    if (d.status === "delivered" && d.delivered_at) eta = "Delivered at " + fmt(d.delivered_at);
+    else if (d.eta_minutes) eta = "Arriving in about <b>" + d.eta_minutes + " min</b> (around " + fmt(d.eta_at) + ")";
+    else if (d.status === "assigned" || d.status === "new") eta = "Your delivery is being prepared.";
+    document.getElementById("eta").innerHTML = eta;
+    if (d.dest && !dest) dest = L.marker(d.dest, {title: "Destination"}).addTo(map);
+    if (d.vehicle) {
+      if (!veh) veh = L.circleMarker(d.vehicle, {radius: 9, color: "#fff", weight: 3, fillColor: "#0d9488", fillOpacity: 1}).addTo(map);
+      else veh.setLatLng(d.vehicle);
+      map.fitBounds(L.latLngBounds([d.vehicle].concat(d.dest ? [d.dest] : [])).pad(0.3), {maxZoom: 15});
+    } else if (veh) { map.removeLayer(veh); veh = null; }
+    document.getElementById("upd").textContent = d.updated ? "Vehicle position from " + fmt(d.updated) + ". Updates every 30 seconds." : "";
+  }
+  draw();
+  setInterval(() => fetch("data.json", {cache: "no-store"}).then(r => r.ok ? r.json() : null).then(x => { if (x) { d = x; draw(); } }), 30000);
+})();
+</script>
+{% endif %}
+</div></body></html>
